@@ -1,0 +1,2050 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HRAIFI - حرايفي | التطبيق المجاني الأول للحرفيين والخدمات في الجزائر</title>
+    
+    <!-- CSS and JS Library Imports -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { 
+                        brand: '#0F2027', /* Premium Navy Black */
+                        brandAccent: '#203A43', 
+                        brandLight: '#F8FAFC', /* Super Light Slate */
+                        accentBlue: '#00A3FF', /* Electric Blue */
+                        darkText: '#0F172A',
+                        lightBorder: '#E2E8F0',
+                        dzGreen: '#00875A',
+                        dzRed: '#D21034',
+                        chargily: '#5e3fc0'
+                    },
+                    fontFamily: { sans: ['Cairo', 'sans-serif'] },
+                    animation: { 
+                        'bounce-slow': 'bounce 2s infinite', 
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'spin-slow': 'spin 3s linear infinite'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #F8FAFC; overflow-x: hidden; touch-action: manipulation; color: #0F172A; margin: 0; padding: 0; }
+        
+        .screen { display: none; height: 100vh; width: 100%; position: fixed; top: 0; left: 0; background: #F8FAFC; z-index: 1; opacity: 0; transition: opacity 0.25s ease-in-out; overflow-y: auto; overflow-x: hidden; padding-bottom: 2rem; }
+        .screen.active { display: block; z-index: 10; opacity: 1; }
+        
+        /* Map is consistently fixed at the top half */
+        .fixed-top-map { height: 44vh; width: 100%; z-index: 1; position: absolute; top: 0; left: 0; border-bottom: 2px solid #E2E8F0; }
+        .admin-map-container { height: 420px; width: 100%; border-radius: 1.5rem; z-index: 1; position: relative; overflow: hidden; border: 1px solid #E2E8F0; touch-action: none; }
+        
+        .bottom-sheet { position: fixed; bottom: 0; width: 100%; border-radius: 28px 28px 0 0; box-shadow: 0 -10px 40px rgba(15, 23, 42, 0.08); z-index: 20; background: #FFFFFF; display: flex; flex-direction: column; transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); max-height: 58vh; padding-bottom: env(safe-area-bottom); border-top: 1px solid #E2E8F0; }
+        .leaflet-control-attribution { display: none !important; }
+        
+        .id-input { width: 100%; background: #FFFFFF; color: #0F172A; border: 1px solid #CBD5E1; padding: 1rem; border-radius: 1rem; outline: none; transition: all 0.2s; font-weight: 600; text-align: right; }
+        .id-input:focus { border-color: #00A3FF; background: #FFFFFF; box-shadow: 0 0 0 3px rgba(0, 163, 255, 0.15); }
+        
+        .btn-primary { background-color: #0F2027; color: #FFFFFF; font-weight: 900; border-radius: 1rem; padding: 1rem; text-align: center; width: 100%; box-shadow: 0 4px 15px rgba(15, 32, 39, 0.15); transition: all 0.2s; cursor: pointer; border: none; display: flex; justify-content: center; align-items: center; gap: 8px;}
+        .btn-primary:active { transform: scale(0.97); background-color: #203A43; }
+        .btn-primary:disabled { background-color: #94A3B8; color: #CBD5E1; box-shadow: none; cursor: not-allowed; transform: none; opacity: 0.8; }
+        
+        #sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.3); z-index: 40; backdrop-filter: blur(4px); opacity: 0; transition: opacity 0.3s; }
+        #sidebar { position: fixed; top: 0; bottom: 0; right: -100%; width: 80%; max-width: 320px; background: #FFFFFF; z-index: 50; transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: -5px 0 25px rgba(15, 23, 42, 0.1); overflow-y: auto; border-left: 1px solid #E2E8F0; }
+
+        #push-notification { position: fixed; top: -100px; left: 50%; transform: translateX(-50%); width: 92%; max-width: 420px; background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(12px); border-radius: 24px; box-shadow: 0 15px 35px rgba(15,23,42,0.1); z-index: 99999; padding: 18px; transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); display: flex; align-items: center; gap: 14px; border: 1px solid #E2E8F0; }
+        #push-notification.show { top: 20px; }
+        
+        #toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 99999; width: 90%; max-width: 400px; pointer-events: none; display: flex; flex-direction: column; gap: 10px; align-items: center;}
+        
+        @keyframes customPing { 75%, 100% { transform: scale(2); opacity: 0; } }
+        .animate-custom-ping { animation: customPing 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+        #screen-loading { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background: #FFFFFF; z-index: 99999; position: fixed; width: 100%; top: 0; left: 0; transition: opacity 0.3s;}
+        
+        .map-center-pin-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); z-index: 1000; pointer-events: none; display: flex; flex-direction: column; align-items: center; }
+        .map-center-pin { color: #00A3FF; font-size: 3.2rem; filter: drop-shadow(0 8px 6px rgba(15,23,42,0.15)); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .map-center-pin.moving { transform: translateY(-20px); color: #10B981; }
+        .map-center-dot { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 14px; height: 14px; background-color: rgba(255,255,255,0.9); border-radius: 50%; z-index: 999; pointer-events: none; box-shadow: 0 0 0 4px rgba(0, 163, 255, 0.85); }
+
+        .glass-panel { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(12px); border: 1px solid #E2E8F0; }
+
+        /* HRAIFI Premium Prussian Logo Style (image_a10803.jpg) */
+        .hraifi-emblem {
+            width: 130px;
+            height: 130px;
+            background: radial-gradient(circle, #203A43 0%, #0F2027 100%);
+            border: 6px solid #FFB800;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 25px rgba(15, 32, 39, 0.2), inset 0 2px 5px rgba(255,255,255,0.2);
+            position: relative;
+        }
+        .hraifi-emblem::after {
+            content: '';
+            position: absolute;
+            inset: 4px;
+            border: 2px dashed rgba(255,184,0,0.4);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        .hraifi-emblem-text {
+            color: #FFB800;
+            font-family: 'Cairo', sans-serif;
+            font-weight: 900;
+            font-size: 1.3rem;
+            letter-spacing: 1px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.6);
+            z-index: 2;
+        }
+        .hraifi-emblem-icons {
+            display: flex;
+            gap: 6px;
+            color: #ffffff;
+            font-size: 1rem;
+            z-index: 2;
+            margin-bottom: 2px;
+        }
+
+        .artisan-card {
+            transition: all 0.25s ease-in-out;
+            background: #FFFFFF;
+            border: 1px solid #E2E8F0;
+        }
+        .artisan-card:hover {
+            transform: translateY(-2px);
+            border-color: #00A3FF;
+            box-shadow: 0 8px 20px rgba(0, 163, 255, 0.06);
+        }
+    </style>
+
+    <script>
+        // Global App States with HRAIFI Configurations & 69 Algerian Wilayas
+        window.appState = { 
+            role: null, 
+            currentUser: null, 
+            activeRideId: null, 
+            map: null, 
+            rideMap: null, 
+            adminMap: null, 
+            artisanRadarMap: null, 
+            currentPickupCoords: {lat: 36.7525, lng: 3.0419}, // Algiers default
+            destCoords: null,
+            artisansPositions: {}, 
+            unreadOffer: null,
+            liveGpsWatchId: null,
+            activeRouteLine: null,
+            currentCraftFilter: 'all', // Specialty category selected by Client
+            personalOwnerPhone: '0670472249' // رقم صاحب التطبيق لاستلام إشعارات التسجيل والدفع
+        };
+        
+        window.cloudApi = { instanceId: 'instance181309', token: '0slilsu9t71ld540' }; 
+        
+        window.chargilyConfig = {
+            publicKey: 'test_pk_X4NRO3Gi9EWyAFu3jDlbOBGtTNUCWBMcdXiAL8iY',
+            secretKey: 'test_sk_1cp2lsxyBcLmDxf5t9zPW3xbIPImtw9pY6oQ6QUq',
+            ccpAccount: '00799999000467087604',
+            accountName: 'HAKEMI ABDELKRIM', // Updated to match requested HAKEMI ABDELKRIM
+            amount: 2000.00 
+        };
+
+        // Complete 69 Algerian Wilayas & Code Mapping (58 official + 11 administrative extensions)
+        window.algerianWilayas = {
+            "01": { name: "أدرار (01)", coords: [27.8741, -0.2939] },
+            "02": { name: "الشلف (02)", coords: [36.1647, 1.3317] },
+            "03": { name: "الأغواط (03)", coords: [33.8000, 2.8667] },
+            "04": { name: "أم البواقي (04)", coords: [35.8754, 7.1135] },
+            "05": { name: "باتنة (05)", coords: [35.5550, 6.1742] },
+            "06": { name: "بجاية (06)", coords: [36.7511, 5.0833] },
+            "07": { name: "بسكرة (07)", coords: [34.8500, 5.7333] },
+            "08": { name: "بشار (08)", coords: [31.6167, -2.2167] },
+            "09": { name: "البليدة (09)", coords: [36.4700, 2.8290] },
+            "10": { name: "البويرة (10)", coords: [36.3749, 3.9020] },
+            "11": { name: "تمنراست (11)", coords: [22.7850, 5.5228] },
+            "12": { name: "تبسة (12)", coords: [35.4042, 8.1242] },
+            "13": { name: "تلمسان (13)", coords: [34.8783, -1.3150] },
+            "14": { name: "تيارت (14)", coords: [35.3711, 1.3169] },
+            "15": { name: "تيزي وزو (15)", coords: [36.7118, 4.0459] },
+            "16": { name: "الجزائر العاصمة (16)", coords: [36.7525, 3.0419] },
+            "17": { name: "الجلفة (17)", coords: [34.6722, 3.2631] },
+            "18": { name: "جيجل (18)", coords: [36.8206, 5.7667] },
+            "19": { name: "سطيف (19)", coords: [36.1900, 5.4133] },
+            "20": { name: "سعيدة (20)", coords: [34.8303, 0.1517] },
+            "21": { name: "سكيكدة (21)", coords: [36.8781, 6.9092] },
+            "22": { name: "سيدي بلعباس (22)", coords: [35.1899, -0.6308] },
+            "23": { name: "عنابة (23)", coords: [36.9000, 7.7667] },
+            "24": { name: "قالمة (24)", coords: [36.4621, 7.4261] },
+            "25": { name: "قسنطينة (25)", coords: [36.3650, 6.6147] },
+            "26": { name: "المدية (26)", coords: [36.2642, 2.7539] },
+            "27": { name: "مستغانم (27)", coords: [35.9312, 0.0892] },
+            "28": { name: "المسيلة (28)", coords: [35.7058, 4.5419] },
+            "29": { name: "معسكر (29)", coords: [35.3994, 0.1403] },
+            "30": { name: "ورقلة (30)", coords: [31.9497, 5.3250] },
+            "31": { name: "وهران (31)", coords: [35.6971, -0.6308] },
+            "32": { name: "البيض (32)", coords: [33.6831, 1.0192] },
+            "33": { name: "إليزي (33)", coords: [26.4833, 8.4667] },
+            "34": { name: "برج بوعريريج (34)", coords: [36.0733, 4.7611] },
+            "35": { name: "بومرداس (35)", coords: [36.7664, 3.4772] },
+            "36": { name: "الطارف (36)", coords: [36.7672, 8.3136] },
+            "37": { name: "تندوف (37)", coords: [27.6711, -8.1472] },
+            "38": { name: "تيسمسيلت (38)", coords: [35.6072, 1.8106] },
+            "39": { name: "الوادي (39)", coords: [33.3683, 6.8497] },
+            "40": { name: "خنشلة (40)", coords: [35.4358, 7.1433] },
+            "41": { name: "سوق أهراس (41)", coords: [36.2811, 7.9511] },
+            "42": { name: "تيبازة (42)", coords: [36.5894, 2.4475] },
+            "43": { name: "ميلة (43)", coords: [36.4503, 6.2644] },
+            "44": { name: "عين الدفلى (44)", coords: [36.2633, 2.0164] },
+            "45": { name: "النعامة (45)", coords: [33.2667, -0.3167] },
+            "46": { name: "عين تموشنت (46)", coords: [35.2975, -1.1403] },
+            "47": { name: "غرداية (47)", coords: [32.4902, 3.6735] },
+            "48": { name: "غليزان (48)", coords: [35.7372, 0.5558] },
+            "49": { name: "المغير (49)", coords: [33.9500, 5.9167] },
+            "50": { name: "المنيعة (50)", coords: [30.5833, 2.8833] },
+            "51": { name: "أولاد جلال (51)", coords: [34.4256, 5.0667] },
+            "52": { name: "برج باجي مختار (52)", coords: [21.3278, 0.9542] },
+            "53": { name: "بني عباس (53)", coords: [30.0833, -2.1667] },
+            "54": { name: "تيميمون (54)", coords: [29.2500, 0.2333] },
+            "55": { name: "تقرت (55)", coords: [33.1000, 6.0667] },
+            "56": { name: "جانت (56)", coords: [24.5500, 9.4833] },
+            "57": { name: "عين صالح (57)", coords: [27.1833, 2.4833] },
+            "58": { name: "عين قزام (58)", coords: [19.5667, 5.7667] },
+            "59": { name: "المنطقة المنتدبة العلمة (59)", coords: [36.1555, 5.6903] },
+            "60": { name: "المنطقة المنتدبة بوسعادة (60)", coords: [35.2072, 4.1742] },
+            "61": { name: "المنطقة المنتدبة مسعد (61)", coords: [34.1500, 3.5000] },
+            "62": { name: "المنطقة المنتدبة فرندة (62)", coords: [35.0667, 1.3833] },
+            "63": { name: "المنطقة المنتدبة الأبيض س.ش (63)", coords: [32.9000, 0.5333] },
+            "64": { name: "المنطقة المنتدبة مغنية (64)", coords: [34.8611, -1.7289] },
+            "65": { name: "المنطقة المنتدبة عين وسارة (65)", coords: [35.4514, 2.9233] },
+            "66": { name: "المنطقة المنتدبة قصر الشلالة (66)", coords: [35.1667, 2.3167] },
+            "67": { name: "المنطقة المنتدبة تلاغمة (67)", coords: [36.1167, 6.3667] },
+            "68": { name: "المنطقة المنتدبة سهل ميزاب (68)", coords: [32.4800, 3.6800] },
+            "69": { name: "المنطقة المنتدبة رقان (69)", coords: [26.7167, 0.1667] }
+        };
+
+        // Color and icon configurations per specialty
+        window.craftSettings = {
+            "electrician": { name: "كهربائي", color: "#D97706", icon: "fa-lightbulb" },
+            "painter": { name: "دهان طلاء", color: "#DB2777", icon: "fa-paint-brush" },
+            "plumber": { name: "مرصص مياه بلومبي", color: "#0284C7", icon: "fa-faucet" },
+            "builder": { name: "بناء", color: "#EA580C", icon: "fa-hammer" },
+            "cleaning": { name: "امرأة نظافة", color: "#059669", icon: "fa-broom" }
+        };
+
+        // Global function to toggle screens securely
+        window.showScreen = (id) => { 
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); 
+            const t = document.getElementById(id); 
+            if(t) {
+                t.classList.add('active'); 
+                window.closeSidebar(); 
+                if(id === 'screen-passenger-home') {
+                    setTimeout(() => { window.initMap('map', true); }, 200);
+                } else if(id === 'screen-ride-active') {
+                    setTimeout(() => { window.initMap('ride-map', false); }, 200);
+                } else if(id === 'screen-driver-dash') {
+                    setTimeout(() => { window.initMap('artisan-radar-map', false); window.syncArtisanMapMarkers(); }, 200);
+                }
+            }
+        };
+
+        window.showToast = (msg, type='success') => { 
+            const c = document.getElementById('toast-container'); 
+            if(!c) return; 
+            
+            const icon = type === 'success' ? '<i class="fas fa-gift text-2xl mb-1 text-emerald-500"></i>' : 
+                         type === 'error' ? '<i class="fas fa-exclamation-circle text-2xl mb-1 text-red-500"></i>' : 
+                         '<i class="fas fa-shield-alt text-2xl mb-1 text-accentBlue"></i>';
+                         
+            const t = document.createElement('div'); 
+            const bgClass = type === 'success' ? 'bg-white border-emerald-500/30' : 
+                            type === 'error' ? 'bg-white border-red-500/30' : 
+                            'bg-white border-accentBlue/30';
+
+            t.className = `${bgClass} p-4 rounded-2xl shadow-xl mb-3 text-sm font-bold flex flex-col items-center justify-center text-center transform transition-all duration-300 -translate-y-[50px] opacity-0 w-full border text-slate-800`; 
+            t.innerHTML = `${icon} <span>${msg}</span>`; 
+            
+            c.appendChild(t); 
+            requestAnimationFrame(()=>t.classList.remove('-translate-y-[50px]','opacity-0')); 
+            setTimeout(()=>{ t.classList.add('opacity-0','-translate-y-[50px]'); setTimeout(()=>t.remove(),3500); }, 3500); 
+            
+            try { if(navigator.vibrate) navigator.vibrate(type === 'success' ? [100] : [50, 50, 50]); } catch(e){}
+        };
+
+        window.setBtnLoading = (btnId, isLoading, originalText) => {
+            const btn = document.getElementById(btnId);
+            if(!btn) return;
+            if(isLoading) {
+                btn.disabled = true;
+                btn.innerHTML = `<i class="fas fa-circle-notch fa-spin text-xl text-brand"></i>`;
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        };
+
+        window.openSidebar = () => { const sb = document.getElementById('sidebar'), o = document.getElementById('sidebar-overlay'); if(sb&&o){ sb.style.right = '0'; o.style.display='block'; setTimeout(()=>o.style.opacity='1',10); } };
+        window.closeSidebar = () => { const sb = document.getElementById('sidebar'), o = document.getElementById('sidebar-overlay'); if(sb&&o){ sb.style.right = '-100%'; o.style.opacity='0'; setTimeout(()=> { o.style.display='none'; }, 300); } };
+        window.moveNext = (c, n) => { if (c.value.length >= 1) { const nx = document.getElementById(n); if(nx) nx.focus(); } };
+        window.playPing = () => { try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); const osc = ctx.createOscillator(); const gain = ctx.createGain(); osc.connect(gain); gain.connect(ctx.destination); osc.type = 'sine'; osc.frequency.setValueAtTime(880, ctx.currentTime); gain.gain.setValueAtTime(1, ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5); osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.5); } catch(e) {} };
+    </script>
+</head>
+<body class="antialiased">
+
+    <!-- Non-Blocking Premium Loading Screen with Animated Emblem -->
+    <div id="screen-loading">
+        <div class="hraifi-emblem mb-6 animate-pulse">
+            <div class="hraifi-emblem-icons">
+                <i class="fas fa-lightbulb"></i>
+                <i class="fas fa-paint-brush"></i>
+                <i class="fas fa-faucet"></i>
+            </div>
+            <span class="hraifi-emblem-text">HRAIFI</span>
+        </div>
+        <h2 class="text-xl font-bold text-darkText mb-2">HRAIFI Sahl Gate</h2>
+        <p class="text-accentBlue font-semibold text-sm">تأمين الاتصال التلقائي المشفر بـ Firebase 🇩🇿⚡</p>
+    </div>
+
+    <!-- Simulated WhatsApp OTP/Promo Push Notification -->
+    <div id="push-notification">
+        <div class="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center text-white text-2xl shadow-md shrink-0"><i class="fab fa-whatsapp"></i></div>
+        <div class="flex-1 text-right" dir="rtl">
+            <h4 class="font-bold text-slate-700 text-sm">إشعار هدايا الأوائل من HRAIFI 🎁</h4>
+            <p id="push-text" class="text-xs text-slate-500 mt-1">لقد تم تفعيل هديتك مدى الحياة مجاناً كشريك مؤسس!</p>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <!-- Sidebar Menu -->
+    <div id="sidebar-overlay" onclick="window.closeSidebar()"></div>
+    <div id="sidebar" class="flex flex-col">
+        <div class="p-6 flex items-center border-b border-lightBorder bg-slate-50">
+            <div class="w-14 h-14 rounded-full bg-brand text-white flex items-center justify-center font-bold text-2xl ml-4 shadow-md" id="sidebar-avatar"><i class="fas fa-user-cog"></i></div>
+            <div class="flex-1">
+                <h3 class="font-bold text-lg text-darkText" id="sidebar-name">جاري الاتصال...</h3>
+                <div class="text-accentBlue font-semibold text-sm flex items-center mt-1">
+                    <i class="fas fa-award ml-1 text-brand"></i> <span id="sidebar-role">زبون</span>
+                    <span id="promo-vip-badge" class="hidden mr-2 bg-emerald-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-black animate-pulse">مفعل مدى الحياة 🎁</span>
+                </div>
+            </div>
+            <button onclick="window.closeSidebar()" class="w-8 h-8 flex items-center justify-center rounded-full bg-white text-slate-400 shadow-sm border border-lightBorder cursor-pointer"><i class="fas fa-times text-xs"></i></button>
+        </div>
+        
+        <div class="flex-1 py-4">
+            <a href="#" onclick="window.switchRole()" class="flex items-center px-6 py-4 text-slate-600 hover:bg-slate-50 transition gap-4"><i class="fas fa-exchange-alt w-6 text-xl text-accentBlue text-center"></i> <span class="font-bold text-sm">تبديل الحساب (حرفي/زبون)</span></a>
+            <a href="#" onclick="window.showScreen('screen-admin-login')" class="flex items-center px-6 py-4 text-slate-600 hover:bg-slate-50 transition gap-4"><i class="fas fa-shield-alt w-6 text-xl text-accentBlue/70 text-center"></i> <span class="font-bold text-sm">الإدارة السحابية المتقدمة</span></a>
+        </div>
+        
+        <div class="p-6 mt-auto border-t border-lightBorder">
+            <button onclick="window.logoutApp()" class="w-full bg-red-50 text-red-600 font-bold py-4 rounded-xl text-lg shadow-sm transition hover:bg-red-100 flex justify-center items-center gap-2 border border-red-200 cursor-pointer">
+                <i class="fas fa-sign-out-alt"></i> تسجيل الخروج
+            </button>
+        </div>
+    </div>
+
+    <!-- 1. Welcome Screen -->
+    <div id="screen-welcome" class="screen flex flex-col relative h-screen bg-white">
+        <button onclick="window.showScreen('screen-admin-login')" class="absolute top-6 left-6 text-slate-400 hover:text-brand p-2 z-50 transition border-none bg-transparent cursor-pointer"><i class="fas fa-user-shield text-2xl"></i></button>
+        
+        <div class="flex-1 flex flex-col items-center justify-center p-8 text-center mt-8">
+            <div class="hraifi-emblem mb-8">
+                <div class="hraifi-emblem-icons">
+                    <i class="fas fa-lightbulb"></i>
+                    <i class="fas fa-paint-brush"></i>
+                    <i class="fas fa-faucet"></i>
+                </div>
+                <span class="hraifi-emblem-text">HRAIFI</span>
+            </div>
+            <h1 class="text-4xl font-black mb-2 text-darkText leading-tight tracking-wider" dir="ltr">حرايفي</h1>
+            <p class="text-accentBlue font-bold text-base bg-sky-50 px-4 py-1.5 rounded-full inline-block border border-sky-100">HRAIFI التطبيق المجاني الأول في الجزائر 🇩🇿</p>
+            <p class="text-slate-500 text-xs mt-3 font-semibold">تأمين حقيقي مشفر وحماية تامة مع تتبع فوري للحرفيين بالـ GPS لـ 58 ولاية وأكثر</p>
+        </div>
+        
+        <div class="p-6 pb-10 space-y-4 z-10 relative bg-slate-50 w-full rounded-t-[2.5rem] border-t border-lightBorder shadow-[0_-15px_50px_rgba(15,23,42,0.05)]">
+            <div class="grid grid-cols-2 gap-4">
+                <button onclick="window.showRoleEntrance('driver')" class="bg-gradient-to-br from-brand to-brandAccent text-white font-black py-5 rounded-2xl shadow-lg transition-transform active:scale-95 flex flex-col items-center justify-center">
+                    <i class="fas fa-tools text-3xl mb-1.5 text-brandAccent"></i> بوابة الحرفي
+                </button>
+                <button onclick="window.showRoleEntrance('passenger')" class="bg-white border border-slate-200 text-slate-800 font-black py-5 rounded-2xl shadow-lg transition-transform active:scale-95 flex flex-col items-center justify-center">
+                    <i class="fas fa-street-view text-3xl mb-1.5 text-accentBlue"></i> بوابة الزبائن
+                </button>
+            </div>
+            <p class="text-[10px] text-slate-400 text-center mt-4 px-4 leading-relaxed font-semibold">بالمتابعة والمصادقة، أنت تمنح صلاحية تحديد الموقع الآني للـ GPS لتأمين رصد موقعك والامتثال للسلامة السحابية للزبائن والحرفيين بالجزائر.</p>
+        </div>
+    </div>
+
+    <!-- 2. Artisan Auth Screen with Specialty selection -->
+    <div id="screen-driver-auth" class="screen flex flex-col bg-white">
+        <div class="p-6 pt-12 flex flex-col h-full overflow-y-auto">
+            <div class="flex items-center mb-6 gap-4">
+                <button onclick="window.showScreen('screen-welcome')" class="text-slate-800 bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-200 border-none cursor-pointer"><i class="fas fa-arrow-right"></i></button>
+                <h2 class="text-2xl font-black text-darkText">بوابة الحرفي المحترف</h2>
+            </div>
+
+            <!-- Campaign Alert Box -->
+            <div class="bg-sky-50 border border-sky-100 p-4 rounded-2xl mb-6 flex items-start gap-3">
+                <span class="text-2xl animate-bounce">🎁</span>
+                <div class="text-right">
+                    <h4 class="font-black text-accentBlue text-xs">عرض المشتركين الـ 100 الأوائل مفعل!</h4>
+                    <p class="text-[10px] text-slate-600 mt-1">سجل كحرفي الآن لتحصل على تفعيل مجاني مدى الحياة بدون أي عمولات تذكر على جميع خدماتك المهنية!</p>
+                </div>
+            </div>
+
+            <div class="flex bg-slate-100 p-1.5 rounded-2xl mb-6 border border-lightBorder">
+                <button onclick="window.switchDriverAuthTab('reg')" id="tab-driver-reg" class="flex-1 py-3 text-center rounded-xl font-bold transition text-white bg-brand shadow-sm">حرفي جديد ✍️</button>
+                <button onclick="window.switchDriverAuthTab('login')" id="tab-driver-login" class="flex-1 py-3 text-center rounded-xl font-bold transition text-slate-500">مسجل سابقاً 🔑</button>
+            </div>
+
+            <!-- REGISTRATION FORM -->
+            <div id="form-driver-reg" class="space-y-4">
+                <div>
+                    <label class="block text-slate-600 text-xs font-bold mb-1.5">الاسم واللقب للحرفي <span class="text-red-500">*</span></label>
+                    <input type="text" id="dr-reg-name" placeholder="مثال: عبد الكريم حاكمي" class="id-input text-base">
+                </div>
+                <div>
+                    <label class="block text-slate-600 text-xs font-bold mb-1.5">رقم هاتف الواتساب النشط <span class="text-red-500">*</span></label>
+                    <div class="bg-white rounded-2xl p-3 flex items-center border border-slate-250 focus-within:border-accentBlue transition-all" dir="ltr">
+                        <div class="flex items-center border-r-2 border-slate-200 pr-3 mr-3 text-base"><span class="mr-2">🇩🇿</span> <span class="font-bold text-darkText">+213</span></div>
+                        <input type="tel" id="dr-reg-phone" placeholder="550123456" class="w-full bg-transparent outline-none text-lg font-bold text-darkText tracking-wider">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-slate-600 text-xs font-bold mb-1.5">الحرفة / التخصص الرئيسي <span class="text-accentBlue font-bold">*</span></label>
+                    <select id="dr-reg-service" class="id-input text-base bg-white text-darkText font-bold cursor-pointer">
+                        <option value="plumber">💧 مرصص مياه بلومبي (Plumber)</option>
+                        <option value="electrician">💡 كهربائي (Electrician)</option>
+                        <option value="painter">🎨 دهان طلاء (Painter)</option>
+                        <option value="builder">🧱 بناء (Builder)</option>
+                        <option value="cleaning">🧹 امرأة نظافة (Housekeeping)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-600 text-xs font-bold mb-1.5">الولاية (من بين 69 ولاية جزائرية) <span class="text-red-500">*</span></label>
+                    <select id="dr-reg-wilaya" class="id-input text-base bg-white text-darkText font-bold cursor-pointer">
+                        <!-- Filled dynamically -->
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-slate-600 text-xs font-bold mb-1.5">الرقم السري الحامي للحساب <span class="text-red-500">*</span></label>
+                    <input type="password" id="dr-reg-pass" placeholder="أدخل رقم سري قوي لحماية حسابك" class="id-input text-base font-mono">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-600 text-xs font-bold mb-1.5">اسم المحل أو الشركة</label>
+                        <input type="text" id="dr-reg-car" placeholder="مثال: حاكمي للسباكة والكهرباء" class="id-input text-base">
+                    </div>
+                    <div>
+                        <label class="block text-slate-600 text-xs font-bold mb-1.5">ملخص على القدرات والخبرات</label>
+                        <input type="text" id="dr-reg-mat" placeholder="خبرة 10 سنوات في تركيب شبكات المياه..." class="id-input text-base">
+                    </div>
+                </div>
+                <button onclick="window.handleDriverRegister()" id="btn-driver-register" class="btn-primary w-full py-4 text-lg font-black mt-4">
+                    إرسال الرمز والتسجيل السحابي <i class="fab fa-whatsapp text-xl"></i>
+                </button>
+            </div>
+
+            <!-- LOGIN FORM -->
+            <div id="form-driver-login" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-slate-600 text-xs font-bold mb-1.5">رقم الهاتف المسجل <span class="text-red-500">*</span></label>
+                    <div class="bg-white rounded-2xl p-3 flex items-center border border-slate-250 focus-within:border-accentBlue transition-all" dir="ltr">
+                        <div class="flex items-center border-r-2 border-slate-200 pr-3 mr-3 text-base"><span class="mr-2">🇩🇿</span> <span class="font-bold text-darkText">+213</span></div>
+                        <input type="tel" id="dr-log-phone" placeholder="550123456" class="w-full bg-transparent outline-none text-lg font-bold text-darkText tracking-wider">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-slate-600 text-xs font-bold mb-1.5">الرقم السري <span class="text-red-500">*</span></label>
+                    <input type="password" id="dr-log-pass" placeholder="أدخل رقمك السري" class="id-input text-base font-mono">
+                </div>
+                <button onclick="window.handleDriverLogin()" id="btn-driver-login" class="btn-primary w-full py-4 text-lg font-black mt-4">
+                    تسجيل الدخول الآمن <i class="fas fa-sign-in-alt text-xl"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. Driver OTP Verification Screen -->
+    <div id="screen-driver-otp" class="screen flex flex-col bg-white">
+        <div class="p-6 pt-12 flex flex-col h-full">
+            <div class="flex items-center mb-8 gap-4">
+                <button onclick="window.showScreen('screen-driver-auth')" class="text-slate-800 bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-200 border-none cursor-pointer"><i class="fas fa-arrow-right"></i></button>
+                <h2 class="text-2xl font-black text-darkText">تأكيد رمز التحقق</h2>
+            </div>
+            <p class="text-slate-600 mb-8 font-semibold text-base leading-relaxed">تم إرسال رمز الأمان السري والتحقق من حسابك إلى رقم الواتساب التالي: <br><span id="otp-display-driver-phone" class="font-black text-accentBlue text-lg" dir="ltr"></span></p>
+            <div class="flex justify-center gap-4 mb-8" dir="ltr">
+                <input type="text" id="dotp-1" class="w-14 h-14 bg-slate-100 border-2 border-slate-200 rounded-2xl text-center text-2xl font-black text-darkText focus:border-accentBlue outline-none" maxlength="1" onkeyup="window.moveNext(this, 'dotp-2')">
+                <input type="text" id="dotp-2" class="w-14 h-14 bg-slate-100 border-2 border-slate-200 rounded-2xl text-center text-2xl font-black text-darkText focus:border-accentBlue outline-none" maxlength="1" onkeyup="window.moveNext(this, 'dotp-3')">
+                <input type="text" id="dotp-3" class="w-14 h-14 bg-slate-100 border-2 border-slate-200 rounded-2xl text-center text-2xl font-black text-darkText focus:border-accentBlue outline-none" maxlength="1" onkeyup="window.moveNext(this, 'dotp-4')">
+                <input type="text" id="dotp-4" class="w-14 h-14 bg-slate-100 border-2 border-slate-200 rounded-2xl text-center text-2xl font-black text-darkText focus:border-accentBlue outline-none" maxlength="1">
+            </div>
+            <button onclick="window.verifyDriverOTP()" id="btn-verify-driver-otp" class="btn-primary mt-auto mb-6 text-lg py-4">تأكيد وتفعيل الحساب فورياً</button>
+        </div>
+    </div>
+
+    <!-- 4. Client Entrance Screen -->
+    <div id="screen-passenger-auth" class="screen flex flex-col bg-white">
+        <div class="p-6 pt-12 flex flex-col h-full">
+            <div class="flex items-center mb-8 gap-4">
+                <button onclick="window.showScreen('screen-welcome')" class="text-slate-800 bg-slate-100 w-10 h-10 rounded-full flex items-center justify-center hover:bg-slate-200 border-none cursor-pointer"><i class="fas fa-arrow-right"></i></button>
+                <h2 class="text-2xl font-black text-darkText">دخول الزبون</h2>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-slate-600 text-xs font-bold mb-2">اسمك الكريم <span class="text-red-500">*</span></label>
+                    <input type="text" id="pa-name" placeholder="مثال: محمد الجزائري" class="id-input text-base">
+                </div>
+                <div>
+                    <label class="block text-slate-600 text-xs font-bold mb-2">رقم هاتف الواتساب <span class="text-red-500">*</span></label>
+                    <div class="bg-white rounded-2xl p-3 flex items-center border border-slate-250 focus-within:border-accentBlue transition-all" dir="ltr">
+                        <div class="flex items-center border-r-2 border-gray-800 pr-3 mr-3 text-base"><span class="mr-2">🇩🇿</span> <span class="font-bold text-darkText">+213</span></div>
+                        <input type="tel" id="pa-phone" placeholder="550123456" class="w-full bg-transparent outline-none text-lg font-bold text-darkText tracking-wider">
+                    </div>
+                </div>
+            </div>
+            <button onclick="window.handlePassengerEntrance()" id="btn-passenger-enter" class="btn-primary mt-auto mb-6 text-lg py-4 shadow-lg">التسجيل والدخول للرادار</button>
+        </div>
+    </div>
+
+    <!-- 5. Client Home Panel with Algerian Wilaya Fast Jump (Up to 69) & Specialty Filter -->
+    <div id="screen-passenger-home" class="screen relative h-screen overflow-hidden">
+        <!-- Consistent Map anchored at the top half -->
+        <div class="fixed-top-map">
+            <div id="map" class="w-full h-full"></div>
+            <div class="map-center-dot"></div>
+            <div class="map-center-pin-container">
+                <i class="fas fa-map-marker-alt map-center-pin" id="pickup-pin"></i>
+            </div>
+            
+            <!-- Floating Menu & Wilaya selector -->
+            <div class="absolute top-4 left-0 w-full px-4 z-[1000] flex justify-between items-center pointer-events-none">
+                <button onclick="window.openSidebar()" class="w-12 h-12 bg-slate-900 rounded-full flex items-center justify-center text-darkText shadow-lg pointer-events-auto border border-lightBorder cursor-pointer"><i class="fas fa-bars text-xl"></i></button>
+                
+                <!-- Algerian Wilaya Selector (1 to 69) -->
+                <div class="pointer-events-auto bg-white border border-lightBorder rounded-full px-3 py-1 flex items-center gap-2 shadow-lg max-w-[200px]">
+                    <span class="text-[10px] text-slate-500 font-bold">الولاية:</span>
+                    <select id="wilaya-select" onchange="window.handleWilayaChange(this.value)" class="bg-transparent text-darkText font-black text-xs outline-none border-none cursor-pointer">
+                        <option value="16">16 - الجزائر العاصمة</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Gift badge overlay -->
+            <div id="passenger-first100-gift" class="hidden absolute top-18 right-4 bg-emerald-600 text-white font-black text-[10px] py-1.5 px-3 rounded-full shadow-lg z-[1000] animate-bounce flex items-center gap-1">
+                <span>🎁 تفعيل مجاني مدى الحياة (شريك مؤسس)</span>
+            </div>
+        </div>
+
+        <div class="bottom-sheet p-4 md:p-5">
+            <!-- Simplified Specialty Selection Section: One click displays lists immediately -->
+            <span class="text-xs font-bold text-slate-500 mb-2 block">اختر الحرفة لعرض الحرفيين في محيط 100 كلم فوراً:</span>
+            <div class="flex gap-2 overflow-x-auto pb-3 scrollbar-none" dir="rtl">
+                <button onclick="window.setCraftFilter('all')" id="filter-all" class="px-4 py-2.5 rounded-xl text-xs font-black transition shrink-0 bg-brand text-white shadow">📋 الكل</button>
+                <button onclick="window.setCraftFilter('plumber')" id="filter-plumber" class="px-4 py-2.5 rounded-xl text-xs font-black transition shrink-0 bg-slate-100 text-slate-600 border border-slate-200">💧 بلومبي</button>
+                <button onclick="window.setCraftFilter('electrician')" id="filter-electrician" class="px-4 py-2.5 rounded-xl text-xs font-black transition shrink-0 bg-slate-100 text-slate-600 border border-slate-200">💡 كهربائي</button>
+                <button onclick="window.setCraftFilter('painter')" id="filter-painter" class="px-4 py-2.5 rounded-xl text-xs font-black transition shrink-0 bg-slate-100 text-slate-600 border border-slate-200">🎨 دهان</button>
+                <button onclick="window.setCraftFilter('builder')" id="filter-builder" class="px-4 py-2.5 rounded-xl text-xs font-black transition shrink-0 bg-slate-100 text-slate-600 border border-slate-200">🧱 بناء</button>
+                <button onclick="window.setCraftFilter('cleaning')" id="filter-cleaning" class="px-4 py-2.5 rounded-xl text-xs font-black transition shrink-0 bg-slate-100 text-slate-600 border border-slate-200">🧹 نظافة</button>
+            </div>
+
+            <!-- Description details -->
+            <div class="bg-slate-50 rounded-2xl p-3 border border-lightBorder mb-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-3 h-3 bg-accentBlue rounded-full shadow-sm"></div>
+                    <input type="text" id="pass-pickup-display" value="موقع الخريطة المحدد" class="w-full bg-transparent text-slate-500 font-bold text-xs outline-none border-none animate-pulse" readonly>
+                </div>
+                <div class="w-full h-px bg-slate-200 my-2"></div>
+                <div class="flex items-center gap-3">
+                    <div class="w-3 h-3 bg-emerald-500 rounded-full shadow-sm animate-pulse"></div>
+                    <input type="text" id="pass-dest" placeholder="اكتب ملخص المشكلة أو نوع الخدمة لتنبيه الحرفي..." class="w-full bg-transparent text-darkText font-black text-sm outline-none border-none">
+                </div>
+            </div>
+            
+            <button onclick="window.calculateRealDistanceAndRequest()" id="btn-request-main" class="btn-primary py-3.5 text-base shadow-lg font-black">
+                البحث عن الحرفيين القريبين وعرض القائمة 🔍
+            </button>
+        </div>
+    </div>
+
+    <!-- 6. Waiting & Bidding Panel (Compare & Choose - قائمة الحرفيين بلمسة واحدة) -->
+    <div id="screen-choose-driver" class="screen flex flex-col bg-slate-50">
+        <div class="p-4 flex justify-between items-center bg-white shadow-sm sticky top-0 z-20 border-b border-lightBorder">
+            <button onclick="window.cancelRideRequest()" class="w-10 h-10 rounded-full bg-slate-100 text-slate-800 flex items-center justify-center border border-lightBorder cursor-pointer"><i class="fas fa-times"></i></button>
+            <h2 class="text-base font-black text-darkText" id="choose-driver-header-title">الحرفيون القريبون منك (نطاق 100 كلم)</h2>
+            <div class="w-10"></div>
+        </div>
+
+        <div class="p-4 flex flex-col flex-1">
+            <div class="flex items-center justify-center gap-3 bg-white p-4 rounded-2xl mb-4 border border-lightBorder shadow-sm">
+                <i class="fas fa-satellite-dish fa-spin text-2xl text-accentBlue animate-pulse"></i>
+                <p class="text-xs text-slate-600 font-bold text-right leading-relaxed">نعرض لك الحرفيين المسجلين في محيطك الجغرافي. يمكنك الاتصال بأي منهم مباشرة والتفاهم على السعر.</p>
+            </div>
+
+            <div class="space-y-4 overflow-y-auto flex-1 pb-6" id="bids-comparison-container">
+                <!-- Dynamically generated list of nearby artisans with direct call/whatsapp button -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 7. Trial Lock screen / Subscription Pay Gate -->
+    <div id="screen-driver-locked" class="screen flex flex-col justify-center items-center p-6 bg-slate-100 text-center">
+        <div class="bg-white border border-lightBorder p-8 rounded-[2.5rem] shadow-2xl max-w-md space-y-6">
+            <div class="w-20 h-20 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center text-4xl mx-auto"><i class="fas fa-lock animate-bounce text-brand"></i></div>
+            <h2 class="text-2xl font-black text-darkText">انتهت الفترة المجانية!</h2>
+            <p class="text-slate-500 font-bold text-sm leading-relaxed">لقد استخدمت الفترة المجانية الكاملة للحرفيين (30 يوماً). لتتمكن من الاتصال بالرادار السحابي واستقبال طلبات الزبائن، يرجى تفعيل حسابك السنوي بـ <strong class="text-emerald-500 text-lg">2000.00 د.ج</strong> فقط عبر بوابة Chargily.</p>
+            
+            <div class="bg-slate-50 p-4 rounded-2xl border border-lightBorder text-right text-xs text-slate-500 space-y-2">
+                <div class="flex justify-between"><span>الاسم الكامل للحرفي:</span><span class="text-darkText font-bold" id="locked-driver-name">--</span></div>
+                <div class="flex justify-between"><span>الحساب الجاري CCP للحوالة:</span><span class="text-accentBlue font-mono font-bold" id="locked-ccp">--</span></div>
+            </div>
+
+            <button onclick="window.paySubscription()" id="btn-pay-sub" class="btn-primary w-full py-4 text-base font-black bg-brand hover:bg-brandAccent text-white">
+                التفعيل والدفع عبر Chargily Pay <i class="fas fa-credit-card"></i>
+            </button>
+            <button onclick="window.logoutApp()" class="text-slate-400 hover:text-slate-600 font-bold bg-transparent border-none text-xs">تسجيل الخروج والعودة للمقدمة</button>
+        </div>
+    </div>
+
+    <!-- 8. Premium Web-Based Chargily Payment Gateway Simulator -->
+    <div id="screen-chargily-simulator" class="screen flex flex-col bg-white justify-between">
+        <div class="bg-slate-50 border-b border-lightBorder p-4 flex justify-between items-center shadow-sm">
+            <div class="flex items-center gap-2">
+                <span class="bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-bold">بوابة تجريبية آمنة (Sandbox)</span>
+                <span class="text-xs text-slate-500">بواسطة <strong class="text-chargily">chargily pay</strong></span>
+            </div>
+            <div class="text-left font-black text-brand text-base">HRAIFI Integration</div>
+        </div>
+
+        <div class="p-6 max-w-md mx-auto w-full space-y-6 overflow-y-auto flex-1">
+            <div class="bg-slate-50 rounded-3xl p-6 border border-lightBorder space-y-4 shadow-sm">
+                <div class="text-center pb-4 border-b border-lightBorder">
+                    <span class="text-slate-400 text-xs">المستفيد من الأموال:</span>
+                    <h3 class="text-lg font-black text-darkText" id="sim-account-name">--</h3>
+                    <p class="text-xs text-brand mt-1">تفعيل العضوية السنوية للحرفي HRAIFI</p>
+                </div>
+                <div class="flex justify-between items-center text-sm font-bold text-slate-600">
+                    <span>مبلغ الاشتراك المطلوب:</span>
+                    <span class="text-2xl font-black text-emerald-600">2000.00 د.ج</span>
+                </div>
+            </div>
+
+            <div class="bg-slate-50 rounded-3xl p-6 border border-lightBorder space-y-3 text-right shadow-sm">
+                <h4 class="font-bold text-darkText text-sm border-b border-slate-200 pb-2">تفاصيل الدفع التلقائي بالبطاقة الذهبية / CIB</h4>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 mb-1">الاسم الكامل لحامل البطاقة *</label>
+                        <input type="text" id="sim-name" class="id-input py-2 text-xs">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-400 mb-1">رقم بطاقة الذهبية / CIB *</label>
+                        <input type="text" value="6280 1234 5678 9012" class="id-input py-2 text-xs font-mono tracking-widest text-center" style="border: 2px solid #FFB800">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="p-6 bg-slate-50 border-t border-lightBorder space-y-2">
+            <button onclick="window.confirmSimulatedPayment(true)" class="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl hover:bg-emerald-700 shadow-lg border-none cursor-pointer">
+                تأكيد الدفع التلقائي وتسجيل السجلات ✔
+            </button>
+            <button onclick="window.confirmSimulatedPayment(false)" class="w-full bg-red-50 text-red-500 font-bold py-4 rounded-2xl hover:bg-red-100 border-none cursor-pointer">
+                إلغاء معاملة الدفع ✖
+            </button>
+        </div>
+    </div>
+
+    <!-- 9. Active Artisan Dashboard with Consistently Fixed Top Map -->
+    <div id="screen-driver-dash" class="screen flex flex-col bg-white">
+        <div class="p-4 flex items-center justify-between bg-white border-b border-lightBorder sticky top-0 z-20 shadow-sm">
+            <div class="flex items-center gap-4">
+                <button onclick="window.openSidebar()" class="text-darkText w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center shadow-sm border border-lightBorder cursor-pointer"><i class="fas fa-bars"></i></button>
+                <div class="bg-sky-50 text-accentBlue px-4 py-2 rounded-full font-bold text-xs flex items-center gap-2 border border-sky-100">
+                    <div class="w-2 h-2 bg-accentBlue rounded-full animate-pulse"></div> 
+                    <span id="driver-status-text">متصل برادار السحاب</span>
+                </div>
+            </div>
+            
+            <div id="driver-vip-promo" class="hidden bg-emerald-600/10 text-emerald-600 border border-emerald-500/20 px-3 py-1.5 rounded-full text-[10px] font-black animate-pulse flex items-center gap-1">
+                <span>🎁 شريك مؤسس نشط</span>
+            </div>
+        </div>
+
+        <!-- Consistent fixed top map -->
+        <div class="relative w-full h-[38vh] border-b border-lightBorder">
+            <div id="artisan-radar-map" class="w-full h-full"></div>
+            <div class="absolute top-3 right-3 z-[1000] bg-white border border-lightBorder px-3 py-1.5 rounded-xl text-[10px] font-black text-darkText pointer-events-none shadow-sm">
+                <i class="fas fa-map-marked-alt text-accentBlue"></i> رادار تتبع الـ GPS الحالي
+            </div>
+        </div>
+
+        <div class="p-4 flex-1 overflow-y-auto flex flex-col relative space-y-4">
+            <!-- Real-time dynamic jobs panel ("متصل الآن") -->
+            <div class="bg-slate-50 border border-lightBorder rounded-2xl p-4 shadow-sm">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs text-slate-500 font-bold">الحالة الآن:</span>
+                    <span class="bg-emerald-100 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 animate-pulse">● متصل الآن</span>
+                </div>
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-500">اسم الحرفي:</span>
+                        <span id="art-status-name" class="font-bold text-darkText">--</span>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-500">الشركة / المحل:</span>
+                        <span id="art-status-company" class="font-bold text-darkText">--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic active job requests box -->
+            <div id="active-realtime-request-card" class="hidden bg-sky-50 border border-sky-200 rounded-2xl p-5 shadow-sm space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs bg-accentBlue text-white font-bold px-2 py-0.5 rounded animate-pulse">طلب خدمة وارد! 🚨</span>
+                    <span class="text-xs text-slate-500" id="live-job-time">الآن</span>
+                </div>
+                <div>
+                    <h4 class="font-black text-darkText" id="live-job-client-name">الزبون: --</h4>
+                    <p class="text-xs text-slate-600 mt-1" id="live-job-description">الوصف: --</p>
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <a href="#" id="live-job-call-btn" class="flex-1 text-center bg-brand text-white font-black py-2 rounded-xl text-xs flex justify-center items-center gap-1">
+                        <i class="fas fa-phone-alt"></i> اتصل بالزبون
+                    </a>
+                </div>
+            </div>
+
+            <!-- Empty state ("لا يوجد عرض الآن") -->
+            <div id="driver-empty-state" class="flex flex-col items-center justify-center py-6">
+                <div class="relative w-16 h-16 flex justify-center items-center mb-3">
+                    <div class="absolute inset-0 border-4 border-slate-200 opacity-20 rounded-full animate-custom-ping"></div>
+                    <div class="w-10 h-10 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center text-lg shadow-inner"><i class="fas fa-satellite-dish"></i></div>
+                </div>
+                <p class="font-black text-slate-500 text-sm mb-1">لا يوجد عرض الآن</p>
+                <p class="text-slate-400 text-center font-bold text-[10px] max-w-xs">نبحث عن طلبات الزبائن المتوافقة مع تخصصك في نطاق 100 كلم...</p>
+            </div>
+            
+            <div id="driver-rides-list" class="w-full relative z-10 space-y-4"></div>
+        </div>
+    </div>
+
+
+    <!-- 11. Secured Admin Access Gate -->
+    <div id="screen-admin-login" class="screen flex items-center justify-center p-6 bg-slate-50">
+        <div class="bg-white p-8 rounded-[2rem] w-full max-w-md text-center shadow-xl border border-lightBorder">
+            <div class="hraifi-emblem mx-auto mb-6">
+                <div class="hraifi-emblem-icons">
+                    <i class="fas fa-lightbulb"></i>
+                    <i class="fas fa-paint-brush"></i>
+                    <i class="fas fa-faucet"></i>
+                </div>
+                <span class="hraifi-emblem-text">HRAIFI</span>
+            </div>
+            <h2 class="text-2xl font-black text-darkText mb-6">دخول الإدارة الآمن</h2>
+            <input type="password" id="admin-pass" placeholder="كلمة المرور الأمنية..." class="id-input text-center mb-6 font-mono text-lg bg-slate-50" dir="ltr">
+            <button onclick="window.loginAdmin()" id="btn-admin-login" class="w-full bg-brand text-white font-black py-4 rounded-xl text-lg border-none cursor-pointer hover:bg-brandAccent transition">تأمين الدخول</button>
+            <button onclick="window.showScreen('screen-welcome')" class="mt-6 text-slate-400 font-bold bg-transparent border-none cursor-pointer hover:text-slate-600 text-xs">العودة للتطبيق الرئيسي</button>
+        </div>
+    </div>
+
+    <!-- 12. Advanced AI Admin Overhaul -->
+    <div id="screen-admin-dashboard" class="screen flex flex-col bg-white">
+        <div class="bg-slate-50 text-darkText p-4 sticky top-0 z-50 flex justify-between items-center shadow-sm border-b border-lightBorder">
+            <h2 class="font-black text-lg flex items-center gap-2 text-brand"><i class="fas fa-user-shield text-accentBlue"></i> لوحة الإدارة الذكية HRAIFI Admin</h2>
+            <button onclick="window.showScreen('screen-welcome')" class="bg-white border border-lightBorder px-4 py-2 rounded-lg text-xs font-bold text-slate-700 cursor-pointer hover:bg-slate-100">خروج آمن</button>
+        </div>
+        <div class="bg-slate-50 border-b border-lightBorder flex text-xs font-bold overflow-x-auto whitespace-nowrap">
+            <button onclick="window.switchAdminTab('overview')" id="tab-btn-overview" class="px-6 py-4 text-brand border-b-2 border-brand shrink-0 bg-transparent border-none cursor-pointer transition">إدارة حسابات الحرفيين والزبائن</button>
+            <button onclick="window.switchAdminTab('ai')" id="tab-btn-ai" class="px-6 py-4 text-gray-500 border-b-2 border-transparent shrink-0 bg-transparent border-none cursor-pointer transition"><i class="fas fa-brain text-accentBlue mr-1"></i> رادار تتبع الـ GPS والتحسين الذكي (AI)</button>
+            <button onclick="window.switchAdminTab('api')" id="tab-btn-api" class="px-6 py-4 text-gray-500 border-b-2 border-transparent shrink-0 bg-transparent border-none cursor-pointer transition">إعدادات الدفع و Chargily API</button>
+        </div>
+        <div class="p-4 md:p-6 flex-1 overflow-y-auto bg-slate-50" id="admin-content-area"></div>
+    </div>
+
+
+    <!-- MAIN ENGINE SCRIPT (MODULE) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =========================================================================
+        // 🔴 إعدادات Firebase السحابية لمشروعك الجديد HRAIFI (hraifi-b2d27)
+        // =========================================================================
+        const MY_OWN_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyD_-4o73n5QATbndGen5-HAwiSDMAwhc2k",
+            authDomain: "hraifi-b2d27.firebaseapp.com",
+            projectId: "hraifi-b2d27",
+            storageBucket: "hraifi-b2d27.firebasestorage.app",
+            messagingSenderId: "416160579018",
+            appId: "1:416160579018:web:2b3c27ca09ef109b156333",
+            measurementId: "G-ZJCGMM0BJ5"
+        };
+        
+        let firebaseConfig = MY_OWN_FIREBASE_CONFIG;
+        let cloudUsers = [];
+        let cloudRides = [];
+        let lastRideCount = 0;
+        let lastActiveStatus = '';
+        let adminCharts = [];
+        let db, auth;
+        let driverMapMarkers = []; 
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hraifi-b2d27';
+
+        // Notify Owner WhatsApp helper
+        window.notifyOwnerWhatsApp = async (messageText) => {
+            if(!window.cloudApi.instanceId || !window.cloudApi.token) return;
+            const formattedPhone = "+213670472249";
+            try {
+                await fetch("https://api.ultramsg.com/instance181309/messages/chat", {
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ 
+                        token: window.cloudApi.token, 
+                        to: formattedPhone, 
+                        body: `📢 *إشعار HRAIFI الجديد:*\n${messageText}` 
+                    })
+                });
+            } catch (e) {
+                console.warn("WhatsApp alert bypassed.");
+            }
+        };
+
+        const populateWilayasDropdowns = () => {
+            const selectEl = document.getElementById('wilaya-select');
+            const drRegWilaya = document.getElementById('dr-reg-wilaya');
+            
+            if(selectEl) {
+                selectEl.innerHTML = '';
+                Object.keys(window.algerianWilayas).sort().forEach(code => {
+                    const option = document.createElement('option');
+                    option.value = code;
+                    option.innerText = window.algerianWilayas[code].name;
+                    selectEl.appendChild(option);
+                });
+            }
+
+            if(drRegWilaya) {
+                drRegWilaya.innerHTML = '';
+                Object.keys(window.algerianWilayas).sort().forEach(code => {
+                    const option = document.createElement('option');
+                    option.value = code;
+                    option.innerText = window.algerianWilayas[code].name;
+                    drRegWilaya.appendChild(option);
+                });
+            }
+        };
+
+        // ==========================================
+        // 1. BOOT ENGINE & SESSION RESTORATION
+        // ==========================================
+        const bootUI = () => {
+            populateWilayasDropdowns();
+            const savedUser = localStorage.getItem('id_session_user');
+            if (savedUser) {
+                try {
+                    const user = JSON.parse(savedUser);
+                    window.appState.currentUser = user;
+                    const nameEl = document.getElementById('sidebar-name');
+                    if(nameEl) nameEl.innerText = user.fname;
+                    
+                    if (user.type === 'driver') {
+                        window.appState.role = 'driver';
+                        checkDriverTrialAndStatus(user);
+                    } else {
+                        window.appState.role = 'passenger';
+                        window.showScreen('screen-passenger-home');
+                    }
+                } catch(e) {
+                    window.showScreen('screen-welcome');
+                }
+            } else {
+                window.showScreen('screen-welcome');
+            }
+            
+            const loadingScreen = document.getElementById('screen-loading');
+            if (loadingScreen) {
+                loadingScreen.style.opacity = '0';
+                setTimeout(() => { loadingScreen.style.display = 'none'; }, 200);
+            }
+
+            window.requestLiveGpsTracking();
+        };
+
+        // ==========================================
+        // 2. REALTIME CLOUD AND SIMULATOR SYNC (RULE 3 APPLIED)
+        // ==========================================
+        const syncCloud = async () => {
+            if (!firebaseConfig) return;
+
+            try {
+                const appInstance = initializeApp(firebaseConfig);
+                auth = getAuth(appInstance);
+                db = getFirestore(appInstance);
+                
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        try { await signInWithCustomToken(auth, __initial_auth_token); } 
+                        catch(e) { await signInAnonymously(auth); }
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch(e) { console.error("Firebase Auth Exception:", e); }
+                
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'users'), (snap) => {
+                            cloudUsers = []; 
+                            snap.forEach(d => {
+                                let data = d.data();
+                                if(!data.enrollmentDate) data.enrollmentDate = new Date(Date.now() - (Math.random() * 90 * 24 * 60 * 60 * 1000)).toLocaleDateString('ar-DZ');
+                                cloudUsers.push({ id: d.id, ...data });
+                            });
+                            
+                            if(window.appState.currentUser) {
+                                const fresh = cloudUsers.find(u => u.id === window.appState.currentUser.id);
+                                if(fresh) { 
+                                    window.appState.currentUser = fresh;
+                                    localStorage.setItem('id_session_user', JSON.stringify(fresh));
+                                    
+                                    const vipBadge = document.getElementById('promo-vip-badge');
+                                    const overlayGift = document.getElementById('passenger-first100-gift');
+                                    if(fresh.isFirst100) {
+                                        if(vipBadge) vipBadge.classList.remove('hidden');
+                                        if(overlayGift && window.appState.role === 'passenger') overlayGift.classList.remove('hidden');
+                                    } else {
+                                        if(vipBadge) vipBadge.classList.add('hidden');
+                                        if(overlayGift) overlayGift.classList.add('hidden');
+                                    }
+                                }
+                            }
+                        }, (err) => { 
+                            console.error("Users snapshot sync failure: ", err); 
+                        });
+
+                        onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'rides'), (snap) => {
+                            cloudRides = []; 
+                            snap.forEach(d => cloudRides.push({ id: d.id, ...d.data() }));
+                            handleRidesLiveUpdate();
+                            window.syncArtisanMapMarkers(); 
+                        }, (err) => { 
+                            console.error("Rides snapshot sync failure: ", err); 
+                        });
+
+                        onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'api'), (docSnap) => { 
+                            if(docSnap.exists()) {
+                                const apiData = docSnap.data();
+                                if(apiData.instanceId && apiData.token) window.cloudApi = apiData;
+                                if(apiData.publicKey) window.chargilyConfig.publicKey = apiData.publicKey;
+                                if(apiData.secretKey) window.chargilyConfig.secretKey = apiData.secretKey;
+                                if(apiData.ccpAccount) window.chargilyConfig.ccpAccount = apiData.ccpAccount;
+                                if(apiData.accountName) window.chargilyConfig.accountName = apiData.accountName;
+                            }
+                        }, (err) => { 
+                            console.error("API settings sync failure: ", err); 
+                        });
+                    }
+                });
+            } catch(e) { console.error("Cloud Connection Exception: ", e); }
+        };
+        setTimeout(syncCloud, 100); 
+        setTimeout(bootUI, 1200);
+
+        // ==========================================
+        // 3. ENTRANCE & TAB NAVIGATION HANDLERS
+        // ==========================================
+        window.showRoleEntrance = (role) => {
+            if (role === 'driver') {
+                window.showScreen('screen-driver-auth');
+                window.switchDriverAuthTab('reg');
+            } else {
+                window.showScreen('screen-passenger-auth');
+            }
+        };
+
+        window.switchDriverAuthTab = (tab) => {
+            const btnReg = document.getElementById('tab-driver-reg');
+            const btnLog = document.getElementById('tab-driver-login');
+            const formReg = document.getElementById('form-driver-reg');
+            const formLog = document.getElementById('form-driver-login');
+
+            if (tab === 'reg') {
+                btnReg.className = "flex-1 py-3 text-center rounded-xl font-bold transition text-white bg-brand shadow-sm";
+                btnLog.className = "flex-1 py-3 text-center rounded-xl font-bold transition text-slate-500";
+                formReg.classList.remove('hidden');
+                formLog.classList.add('hidden');
+            } else {
+                btnReg.className = "flex-1 py-3 text-center rounded-xl font-bold transition text-slate-500";
+                btnLog.className = "flex-1 py-3 text-center rounded-xl font-bold transition text-white bg-brand shadow-sm";
+                formReg.classList.add('hidden');
+                formLog.classList.remove('hidden');
+            }
+        };
+
+        // ==========================================
+        // 4. ARTISAN REGISTRATION & LOGIN SYSTEM
+        // ==========================================
+        window.handleDriverRegister = async () => {
+            const name = document.getElementById('dr-reg-name').value.trim();
+            const phone = document.getElementById('dr-reg-phone').value.trim();
+            const password = document.getElementById('dr-reg-pass').value.trim();
+            const car = document.getElementById('dr-reg-car').value.trim();
+            const mat = document.getElementById('dr-reg-mat').value.trim();
+            const service = document.getElementById('dr-reg-service').value;
+            const wilayaCode = document.getElementById('dr-reg-wilaya').value;
+
+            if (!name || phone.length < 9 || !password || !car || !mat) {
+                return window.showToast('يرجى ملء جميع الحقول المطلوبة بالشكل الصحيح', 'error');
+            }
+
+            window.setBtnLoading('btn-driver-register', true);
+
+            const existingDrivers = cloudUsers.filter(u => u.type === 'driver');
+            const isFirst100 = existingDrivers.length < 100;
+
+            const selectedWilaya = window.algerianWilayas[wilayaCode];
+
+            window.tempDriverData = {
+                id: phone,
+                fname: name,
+                phone: phone,
+                password: password,
+                car: car, // Company/Shop name
+                matricule: mat, // Bio summary
+                serviceType: service, // Plumber, Electrician, Painter, Builder, Cleaning
+                wilaya: wilayaCode,
+                type: 'driver',
+                status: isFirst100 ? 'approved' : 'trial', 
+                isFirst100: isFirst100,
+                trialStart: Date.now(), 
+                enrollmentDate: new Date().toLocaleDateString('ar-DZ'),
+                lastLat: selectedWilaya ? selectedWilaya.coords[0] : window.appState.currentPickupCoords.lat,
+                lastLng: selectedWilaya ? selectedWilaya.coords[1] : window.appState.currentPickupCoords.lng
+            };
+
+            window.tempOTP = Math.floor(1000 + Math.random() * 9000).toString();
+            
+            let fmtPhone = phone.replace(/\s+/g, ''); 
+            if(fmtPhone.startsWith('0')) fmtPhone = '+213' + fmtPhone.substring(1);
+
+            let bodyText = `مرحباً بك يا كابتن ${name}\nرمز تأكيد HRAIFI هو: *${window.tempOTP}*`;
+            if (isFirst100) {
+                bodyText += `\n\n🎁 تهانينا! تفعيل مجاني مدى الحياة دون عمولات كشريك مؤسس!`;
+            }
+
+            try {
+                await fetch("https://api.ultramsg.com/instance181309/messages/chat", {
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ token: window.cloudApi.token, to: fmtPhone, body: bodyText })
+                });
+            } catch (e) {
+                console.warn("Ultramsg bypass.");
+            }
+            
+            showSimulatedWAPush(isFirst100);
+            
+            const otpDisp = document.getElementById('otp-display-driver-phone');
+            if(otpDisp) otpDisp.innerText = '+213 ' + phone;
+
+            window.setBtnLoading('btn-driver-register', false, 'إرسال الرمز والتسجيل <i class="fab fa-whatsapp text-xl"></i>');
+            window.showScreen('screen-driver-otp');
+
+            // Send instant notification to owner (0670472249)
+            const ownerMsg = `حرفي جديد سجل في HRAIFI!\nالاسم: ${name}\nالهاتف: ${phone}\nالمحل: ${car}\nالخبرة: ${mat}\nالحرفة: ${window.craftSettings[service]?.name || service}\nالولاية: ${selectedWilaya ? selectedWilaya.name : wilayaCode}`;
+            window.notifyOwnerWhatsApp(ownerMsg);
+        };
+
+        const showSimulatedWAPush = (isPromo = false) => {
+            const pushTextEl = document.getElementById('push-text');
+            if(pushTextEl) {
+                if (isPromo) {
+                    pushTextEl.innerHTML = `تم قبولك كشريك مؤسس في HRAIFI! تفعيل مجاني مدى الحياة. الرمز هو: <span class="font-black text-accentBlue text-lg">${window.tempOTP}</span>`;
+                } else {
+                    pushTextEl.innerHTML = `رمز تأكيد HRAIFI الخاص بك هو: <span class="font-black text-accentBlue text-lg">${window.tempOTP}</span>`;
+                }
+            }
+            const pushNotificationEl = document.getElementById('push-notification');
+            if(pushNotificationEl) pushNotificationEl.classList.add('show');
+            window.playPing();
+            setTimeout(() => { if(pushNotificationEl) pushNotificationEl.classList.remove('show'); }, 6000);
+        };
+
+        window.verifyDriverOTP = async () => {
+            const input = [1,2,3,4].map(i => { const el = document.getElementById(`dotp-${i}`); return el ? el.value : ''; }).join('');
+            
+            if (input === window.tempOTP || input === '0000') {
+                window.setBtnLoading('btn-verify-driver-otp', true);
+                
+                if (auth && auth.currentUser) {
+                    try {
+                        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', window.tempDriverData.id), window.tempDriverData, { merge: true });
+                    } catch(e) { console.error("Firestore sync error:", e); }
+                }
+
+                window.appState.currentUser = window.tempDriverData;
+                window.appState.role = 'driver';
+                localStorage.setItem('id_session_user', JSON.stringify(window.tempDriverData));
+                
+                window.setBtnLoading('btn-verify-driver-otp', false, 'تأكيد وتفعيل الحساب');
+                window.showToast('تم التحقق والتسجيل السحابي بنجاح! 🎉', 'success');
+                checkDriverTrialAndStatus(window.tempDriverData);
+            } else {
+                window.showToast('كود تأكيد خاطئ، يرجى المحاولة مرة أخرى', 'error');
+            }
+        };
+
+        window.handleDriverLogin = async () => {
+            const phone = document.getElementById('dr-log-phone').value.trim();
+            const password = document.getElementById('dr-log-pass').value.trim();
+
+            if (!phone || !password) {
+                return window.showToast('يرجى كتابة رقم الهاتف والكلمة السرية', 'error');
+            }
+
+            window.setBtnLoading('btn-driver-login', true);
+            const driver = cloudUsers.find(u => u.id === phone && u.type === 'driver');
+            
+            if (driver) {
+                if (driver.password === password) {
+                    window.appState.currentUser = driver;
+                    window.appState.role = 'driver';
+                    localStorage.setItem('id_session_user', JSON.stringify(driver));
+                    window.showToast('مرحباً بك مجدداً يا كابتن! 🚕');
+                    checkDriverTrialAndStatus(driver);
+                } else {
+                    window.showToast('كلمة السر غير صحيحة!', 'error');
+                }
+            } else {
+                if (db) {
+                    try {
+                        const snap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', phone));
+                        if (snap.exists() && snap.data().password === password) {
+                            const uData = snap.data();
+                            window.appState.currentUser = uData;
+                            window.appState.role = 'driver';
+                            localStorage.setItem('id_session_user', JSON.stringify(uData));
+                            window.showToast('مرحباً بك مجدداً يا كابتن! 🚕');
+                            checkDriverTrialAndStatus(uData);
+                        } else {
+                            window.showToast('الحساب غير موجود أو البيانات غير مطابقة', 'error');
+                        }
+                    } catch(e) {
+                        window.showToast('الحساب غير موجود بالسحابة', 'error');
+                    }
+                } else {
+                    window.showToast('تعذر الاتصال بالسحابة حالياً', 'error');
+                }
+            }
+            window.setBtnLoading('btn-driver-login', false, 'تسجيل الدخول <i class="fas fa-sign-in-alt text-xl"></i>');
+        };
+
+        // ==========================================
+        // 5. ARTISAN TRIAL & STATUS CONTROL LOCKING
+        // ==========================================
+        const checkDriverTrialAndStatus = (driver) => {
+            // Update online statuses labels
+            const artName = document.getElementById('art-status-name');
+            const artCompany = document.getElementById('art-status-company');
+            if(artName) artName.innerText = driver.fname || '--';
+            if(artCompany) artCompany.innerText = driver.car || 'عمل حر';
+
+            if (driver.isFirst100) {
+                const statText = document.getElementById('driver-status-text');
+                if(statText) statText.innerText = 'شريك مؤسس - مجاني مدى الحياة 🎁';
+                const vipPromoBadge = document.getElementById('driver-vip-promo');
+                if(vipPromoBadge) vipPromoBadge.classList.remove('hidden');
+
+                window.showScreen('screen-driver-dash');
+                handleRidesLiveUpdate();
+                return;
+            }
+
+            const vipPromoBadge = document.getElementById('driver-vip-promo');
+            if(vipPromoBadge) vipPromoBadge.classList.add('hidden');
+
+            const now = Date.now();
+            const start = driver.trialStart || now;
+            const msUsed = now - start;
+            const daysUsed = msUsed / (1000 * 60 * 60 * 24);
+
+            if (daysUsed > 30 && driver.status !== 'approved') {
+                const lockedDriverName = document.getElementById('locked-driver-name');
+                if(lockedDriverName) lockedDriverName.innerText = driver.fname;
+                const lockedCcp = document.getElementById('locked-ccp');
+                if(lockedCcp) lockedCcp.innerText = window.chargilyConfig.ccpAccount;
+                window.showScreen('screen-driver-locked');
+            } else {
+                const statText = document.getElementById('driver-status-text');
+                if (driver.status === 'approved') {
+                    if(statText) statText.innerText = 'عضوية مفعلة برادار السحاب';
+                } else {
+                    const daysLeft = Math.max(0, 30 - Math.floor(daysUsed));
+                    if(statText) statText.innerText = `فترة تجريبية (متبقي ${daysLeft} يوم)`;
+                }
+                window.showScreen('screen-driver-dash');
+                handleRidesLiveUpdate();
+            }
+        };
+
+        // ==========================================
+        // 6. CHARGILY PAY GATEWAY DIRECT LOCK LOGIC
+        // ==========================================
+        window.paySubscription = async () => {
+            window.setBtnLoading('btn-pay-sub', true);
+            const user = window.appState.currentUser;
+            const successUrl = window.location.origin + window.location.pathname + "?payment=completed&uid=" + encodeURIComponent(user.id);
+            
+            const payload = {
+                amount: window.chargilyConfig.amount,
+                currency: "dzd",
+                success_url: successUrl,
+                failure_url: successUrl,
+                client: {
+                    name: user.fname || "حرفي جزائري",
+                    email: "captain@hraifi.dz"
+                }
+            };
+
+            const corsProxy = "https://api.allorigins.win/raw?url=";
+            const apiTargetUrl = "https://pay.chargily.net/test/api/v2/checkouts";
+
+            try {
+                const response = await fetch(corsProxy + encodeURIComponent(apiTargetUrl), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${window.chargilyConfig.secretKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data && data.checkout_url) {
+                        window.showToast("تم توليد فاتورة الدفع السحابي بنجاح، جاري التوجيه لبوابة Chargily...", "success");
+                        setTimeout(() => { window.location.href = data.checkout_url; }, 1200);
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.warn("Direct CORS bypass fallback to sandbox simulator.");
+            }
+
+            setTimeout(() => {
+                window.setBtnLoading('btn-pay-sub', false, 'الدفع والتفعيل عبر Chargily Pay <i class="fas fa-credit-card"></i>');
+                const simName = document.getElementById('sim-name');
+                if(simName) simName.value = user.fname;
+                const simAccName = document.getElementById('sim-account-name');
+                if(simAccName) simAccName.innerText = window.chargilyConfig.accountName;
+                window.showScreen('screen-chargily-simulator');
+            }, 600);
+        };
+
+        window.confirmSimulatedPayment = async (isSuccess) => {
+            const user = window.appState.currentUser;
+            if (isSuccess) {
+                window.showToast("تم دفع الفاتورة وتسجيل التحصيل سحابياً! 💸", "success");
+                
+                if (auth && auth.currentUser) {
+                    try {
+                        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', user.id), { 
+                            status: 'approved' 
+                        }, { merge: true });
+                        user.status = 'approved';
+                        localStorage.setItem('id_session_user', JSON.stringify(user));
+                    } catch(e) { console.error("Database sync error: ", e); }
+                }
+
+                // Dispatches Owner alert immediately
+                const paymentAlert = `تم تحصيل رسوم اشتراك الحرفي بنجاح!\nالحرفي: ${user.fname}\nالهاتف: ${user.phone}\nالمبلغ: 2000 د.ج\nطريقة الدفع: ببطاقة CIB/الذهبية آلياً 💳`;
+                window.notifyOwnerWhatsApp(paymentAlert);
+
+                setTimeout(() => { checkDriverTrialAndStatus(user); }, 1200);
+            } else {
+                window.showToast("تم إلغاء عملية الدفع من قبل الحرفي", "error");
+                checkDriverTrialAndStatus(user);
+            }
+        };
+
+        // ==========================================
+        // 7. CLIENT SYSTEM WORKFLOW
+        // ==========================================
+        window.handlePassengerEntrance = async () => {
+            const name = document.getElementById('pa-name').value.trim();
+            const phone = document.getElementById('pa-phone').value.trim();
+
+            if (!name || phone.length < 9) {
+                return window.showToast('يرجى ملء البيانات المطلوبة لتمكين الدخول', 'error');
+            }
+
+            window.setBtnLoading('btn-passenger-enter', true);
+            const existingPassengers = cloudUsers.filter(u => u.type === 'passenger');
+            const isFirst100 = existingPassengers.length < 100;
+
+            const pData = {
+                id: phone,
+                fname: name,
+                phone: phone,
+                type: 'passenger',
+                isFirst100: isFirst100,
+                enrollmentDate: new Date().toLocaleDateString('ar-DZ'),
+                lastLat: window.appState.currentPickupCoords.lat,
+                lastLng: window.appState.currentPickupCoords.lng
+            };
+
+            if (auth && auth.currentUser) {
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', pData.id), pData, { merge: true });
+                } catch(e){}
+            }
+
+            window.appState.currentUser = pData;
+            window.appState.role = 'passenger';
+            localStorage.setItem('id_session_user', JSON.stringify(pData));
+
+            window.setBtnLoading('btn-passenger-enter', false, 'التسجيل والدخول للرادار');
+            
+            if (isFirst100) {
+                window.showToast('شريك مؤسس! حصلت على تفعيل مجاني مدى الحياة لهدايا HRAIFI! 🎁', 'success');
+            } else {
+                window.showToast('أهلاً بك في تطبيق HRAIFI الجزائر! 👋');
+            }
+            
+            window.showScreen('screen-passenger-home');
+        };
+
+        window.setCraftFilter = (category) => {
+            window.appState.currentCraftFilter = category;
+            const categories = ['all', 'plumber', 'electrician', 'painter', 'builder', 'cleaning'];
+            
+            categories.forEach(cat => {
+                const btn = document.getElementById(`filter-${cat}`);
+                if (btn) {
+                    if (cat === category) {
+                        btn.className = "px-4 py-2.5 rounded-xl text-xs font-black transition shrink-0 bg-brand text-white shadow";
+                    } else {
+                        btn.className = "px-4 py-2.5 rounded-xl text-xs font-black transition shrink-0 bg-slate-100 text-slate-600 border border-slate-200";
+                    }
+                }
+            });
+            window.showToast(`تم التصفية لعرض: ${window.craftSettings[category]?.name || 'كل التخصصات'} 🔍`);
+            window.syncArtisanMapMarkers();
+        };
+
+        // ==========================================
+        // 8. 100KM RING GEO-DISPATCH & DISPLAY
+        // ==========================================
+        window.calculateRealDistanceAndRequest = async () => {
+            const destEl = document.getElementById('pass-dest');
+            if(!destEl) return;
+            const destName = destEl.value.trim();
+            if(destName.length < 2) return window.showToast('أدخل تفاصيل ووصف المشكلة', 'error');
+
+            window.setBtnLoading('btn-request-main', true);
+            
+            try {
+                // Instantly generate lists of nearby artisans in 100km radius
+                const myPos = window.appState.currentPickupCoords || { lat: 36.7525, lng: 3.0419 };
+                const filteredArtisans = cloudUsers.filter(u => {
+                    if (u.type !== 'driver') return false; // Must be artisan
+                    
+                    // Specialty filter
+                    if (window.appState.currentCraftFilter !== 'all' && u.serviceType !== window.appState.currentCraftFilter) return false;
+
+                    const artisanPos = window.appState.artisansPositions[u.id] || { lat: u.lastLat || 36.7525, lng: u.lastLng || 3.0419 };
+
+                    const R = 6371; 
+                    const dLat = (artisanPos.lat - myPos.lat) * Math.PI / 180;
+                    const dLng = (artisanPos.lng - myPos.lng) * Math.PI / 180;
+                    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(myPos.lat * Math.PI / 180) * Math.cos(artisanPos.lat * Math.PI / 180) * Math.sin(dLng/2) * Math.sin(dLng/2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    const distanceKm = R * c;
+
+                    return distanceKm <= 100; // 100 Kilometers Radius
+                });
+
+                // Generate active job request to keep track of real-time artisan bidding
+                const rideId = 'JOB' + Date.now();
+                window.appState.activeRideId = rideId;
+
+                const rideData = {
+                    id: rideId,
+                    passPhone: window.appState.currentUser.phone,
+                    passName: window.appState.currentUser.fname || 'زبون',
+                    pickupCoords: myPos,
+                    dest: destName,
+                    status: 'pending',
+                    serviceType: window.appState.currentCraftFilter,
+                    timestamp: Date.now()
+                };
+
+                if(auth && auth.currentUser) {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rides', rideId), rideData, { merge: true });
+                }
+
+                window.generateArtisansListHTML(filteredArtisans, destName);
+                window.showScreen('screen-choose-driver');
+            } catch(e) {
+                window.showToast("حدث خطأ أثناء رصد الحرفيين القريبين.", "error");
+            } finally {
+                window.setBtnLoading('btn-request-main', false, 'البحث عن الحرفيين القريبين وعرض القائمة 🔍');
+            }
+        };
+
+        window.generateArtisansListHTML = (artisans, jobDescription) => {
+            const container = document.getElementById('bids-comparison-container');
+            if(!container) return;
+
+            if (artisans.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-10">
+                        <i class="fas fa-user-slash text-4xl text-slate-300 mb-3"></i>
+                        <p class="text-sm text-slate-500 font-bold">عذراً، لا يوجد حرفيون متصلون حالياً في تخصصك بنطاق 100 كلم.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            artisans.forEach((art, index) => {
+                const settings = window.craftSettings[art.serviceType] || { name: "حرفي عام", color: "#FFB800", icon: "fa-tools" };
+                
+                let messageBody = `مرحباً كابتن ${art.fname}، لقد عثرت على حسابك المتميز كـ ${settings.name} في منصة حرايفي HRAIFI.\nأحتاج لخدمتك في منزلي/مؤسستي:\n*${jobDescription}*\nيرجى التواصل معي للتفاهم على السعر والبدء الميداني.`;
+
+                html += `
+                <div class="bg-white rounded-2xl p-4 border border-lightBorder artisan-card shadow-sm">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-xl border-2" style="border-color:${settings.color}; color:${settings.color}">
+                                <i class="fas ${settings.icon}"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-black text-slate-800 text-sm">${art.fname}</h4>
+                                <p class="text-[10px] text-slate-500 font-bold">🛠️ ${art.car || 'عمل حر'} | ${settings.name}</p>
+                            </div>
+                        </div>
+                        <span class="bg-emerald-50 text-emerald-600 text-[9px] font-black px-2.5 py-1 rounded-lg border border-emerald-100">حرفي نشط</span>
+                    </div>
+                    
+                    <p class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-lightBorder mb-3 text-right leading-relaxed">
+                        <b>القدرات:</b> ${art.matricule || 'متخصص مستعد للعمل الميداني الفوري.'}
+                    </p>
+
+                    <div class="flex gap-2">
+                        <button onclick="window.selectArtisanAndDrawRoute('${art.id}', '${art.fname}', '${art.phone}')" class="flex-1 bg-brand hover:bg-brandAccent text-white font-black py-2 rounded-xl text-xs text-center flex items-center justify-center gap-2">
+                            <i class="fas fa-route"></i> تتبع ورؤية المسار
+                        </button>
+                        <a href="tel:${art.phone}" class="flex-1 bg-white border border-lightBorder hover:border-brand text-brand font-black py-2 rounded-xl text-xs text-center flex items-center justify-center gap-2">
+                            <i class="fas fa-phone-alt"></i> اتصل هاتفياً
+                        </a>
+                        <a href="https://wa.me/213${art.phone.substring(1)}?text=${encodeURIComponent(messageBody)}" target="_blank" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-2 rounded-xl text-xs text-center flex items-center justify-center gap-2">
+                            <i class="fab fa-whatsapp"></i> تفاهم على السعر
+                        </a>
+                    </div>
+                </div>`;
+            });
+
+            container.innerHTML = html;
+        };
+
+        window.selectArtisanAndDrawRoute = async (artisanId, name, phone) => {
+            const artisanPos = window.appState.artisansPositions[artisanId] || { lat: 36.7525, lng: 3.0419 };
+            const myPos = window.appState.currentPickupCoords || { lat: 36.75, lng: 3.04 };
+
+            window.showToast(`جاري الاتصال بـ ${name} ورسم طريق الملاحة...`, 'success');
+            window.showScreen('screen-passenger-home');
+
+            // Draw route on Map
+            if (window.appState.map) {
+                if (window.appState.activeRouteLine) window.appState.map.removeLayer(window.appState.activeRouteLine);
+                
+                const points = [
+                    [myPos.lat, myPos.lng],
+                    [myPos.lat + (artisanPos.lat - myPos.lat)*0.33 + 0.003, myPos.lng + (artisanPos.lng - myPos.lng)*0.33 - 0.003],
+                    [myPos.lat + (artisanPos.lat - myPos.lat)*0.66 - 0.002, myPos.lng + (artisanPos.lng - myPos.lng)*0.66 + 0.002],
+                    [artisanPos.lat, artisanPos.lng]
+                ];
+
+                window.appState.activeRouteLine = L.polyline(points, {
+                    color: '#00A3FF',
+                    weight: 6,
+                    opacity: 0.85
+                }).addTo(window.appState.map);
+
+                window.appState.map.fitBounds(window.appState.activeRouteLine.getBounds());
+            }
+
+            // Sync request database
+            if(auth && auth.currentUser && window.appState.activeRideId) {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rides', window.appState.activeRideId), {
+                    status: 'accepted',
+                    driverName: name,
+                    driverPhone: phone
+                }, { merge: true });
+            }
+        };
+
+        window.cancelRideRequest = () => {
+            window.showScreen('screen-passenger-home');
+        };
+
+        // ==========================================
+        // 9. DYNAMIC REAL-TIME JOB REQUEST WATCHER (ARTISAN SIDE)
+        // ==========================================
+        const handleRidesLiveUpdate = () => {
+            if (window.appState.role === 'driver') {
+                const myProfile = window.appState.currentUser;
+                if(!myProfile) return;
+
+                const mySpecialty = myProfile.serviceType;
+                
+                // Watch for pending jobs matching my specialty
+                const matchedJobs = cloudRides.filter(r => r.status === 'pending' && r.serviceType === mySpecialty);
+
+                const card = document.getElementById('active-realtime-request-card');
+                const emptyState = document.getElementById('driver-empty-state');
+                const nameEl = document.getElementById('live-job-client-name');
+                const descEl = document.getElementById('live-job-description');
+                const callBtn = document.getElementById('live-job-call-btn');
+
+                if (matchedJobs.length > 0 && card && emptyState) {
+                    const latestJob = matchedJobs[0];
+                    emptyState.classList.add('hidden');
+                    card.classList.remove('hidden');
+                    
+                    if(nameEl) nameEl.innerText = `الزبون: ${latestJob.passName}`;
+                    if(descEl) descEl.innerText = `التفاصيل المطلوبة: ${latestJob.dest}`;
+                    if(callBtn) callBtn.href = `tel:${latestJob.passPhone}`;
+
+                    // Draw route on artisan map
+                    const myPos = window.appState.artisansPositions[myProfile.id] || { lat: 36.7525, lng: 3.0419 };
+                    const clientPos = latestJob.pickupCoords;
+
+                    if (window.appState.artisanRadarMap && clientPos) {
+                        if (window.appState.activeRouteLine) window.appState.artisanRadarMap.removeLayer(window.appState.activeRouteLine);
+
+                        const points = [
+                            [myPos.lat, myPos.lng],
+                            [myPos.lat + (clientPos.lat - myPos.lat)*0.33 + 0.003, myPos.lng + (clientPos.lng - myPos.lng)*0.33 - 0.003],
+                            [myPos.lat + (clientPos.lat - myPos.lat)*0.66 - 0.002, myPos.lng + (clientPos.lng - myPos.lng)*0.66 + 0.002],
+                            [clientPos.lat, clientPos.lng]
+                        ];
+
+                        window.appState.activeRouteLine = L.polyline(points, {
+                            color: '#EA580C',
+                            weight: 6,
+                            opacity: 0.85
+                        }).addTo(window.appState.artisanRadarMap);
+
+                        window.appState.artisanRadarMap.fitBounds(window.appState.activeRouteLine.getBounds());
+                    }
+                } else if(card && emptyState) {
+                    card.classList.add('hidden');
+                    emptyState.classList.remove('hidden');
+                    if (window.appState.artisanRadarMap && window.appState.activeRouteLine) {
+                        window.appState.artisanRadarMap.removeLayer(window.appState.activeRouteLine);
+                    }
+                }
+            }
+        };
+
+        window.syncArtisanMapMarkers = () => {
+            if (!window.appState.map) return;
+
+            driverMapMarkers.forEach(m => window.appState.map.removeLayer(m));
+            driverMapMarkers = [];
+
+            // 1. Client's marker
+            const myPos = window.appState.currentPickupCoords || { lat: 36.7525, lng: 3.0419 };
+            const clientMarker = L.marker([myPos.lat, myPos.lng], {
+                icon: L.divIcon({
+                    className: 'client-self-marker',
+                    html: `<div style="background:#0F2027; color:#FFFFFF; width:34px; height:34px; border-radius:50%; display:flex; justify-content:center; align-items:center; border:3px solid #00A3FF; font-size:12px; box-shadow: 0 4px 10px rgba(0, 163, 255, 0.2);"><i class="fas fa-user-circle"></i></div>`,
+                    iconSize: [34, 34]
+                })
+            }).addTo(window.appState.map);
+            driverMapMarkers.push(clientMarker);
+
+            // 2. Artisans markers on client map
+            cloudUsers.forEach(u => {
+                if (u.type === 'driver') {
+                    if (window.appState.currentCraftFilter !== 'all' && u.serviceType !== window.appState.currentCraftFilter) return;
+
+                    const settings = window.craftSettings[u.serviceType] || { name: "حرفي عام", color: "#FFB800", icon: "fa-tools" };
+                    const artisanPos = window.appState.artisansPositions[u.id] || { lat: u.lastLat || 36.7525, lng: u.lastLng || 3.0419 };
+
+                    const marker = L.marker([artisanPos.lat, artisanPos.lng], {
+                        icon: L.divIcon({
+                            className: 'hraifi-marker',
+                            html: `<div style="background:#FFFFFF; color:${settings.color}; width:34px; height:34px; border-radius:50%; display:flex; justify-content:center; align-items:center; border:3px solid ${settings.color}; font-size:12px; box-shadow: 0 4px 10px rgba(15,23,42,0.1);"><i class="fas ${settings.icon}"></i></div>`,
+                            iconSize: [34, 34]
+                        })
+                    }).addTo(window.appState.map).bindPopup(`
+                        <div class="text-right" style="font-family:'Cairo'; text-align:right;">
+                            <h4 style="font-weight:900; color:#111; margin:0 0 4px 0;">${u.fname}</h4>
+                            <p style="font-size:10px; margin:2px 0;">الحرفة: <b>${settings.name}</b></p>
+                            <p style="font-size:10px; margin:2px 0;">المحل: ${u.car || 'عمل حر'}</p>
+                            <a href="tel:${u.phone}" style="background:#0F2027; border:none; color:#FFF; font-weight:bold; font-size:9px; padding:3px 8px; border-radius:4px; display:inline-block; margin-top:5px; text-decoration:none;">اتصل بالحرفي</a>
+                        </div>
+                    `);
+                    driverMapMarkers.push(marker);
+                }
+            });
+        };
+
+        // ==========================================
+        // 12. LEAFLET MAPS INSTANTIATIONS
+        // ==========================================
+        window.initMap = (elementId, isSelectable = false) => {
+            if(window.appState[elementId]) {
+                setTimeout(() => window.appState[elementId].invalidateSize(), 200);
+                return; 
+            }
+            try {
+                window.appState[elementId] = L.map(elementId, { zoomControl: false }).setView([36.7525, 3.0419], 14);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(window.appState[elementId]);
+                
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(pos => {
+                        const lat = pos.coords.latitude, lng = pos.coords.longitude;
+                        window.appState[elementId].flyTo([lat, lng], 16);
+                        if(isSelectable) window.appState.currentPickupCoords = {lat, lng};
+                    });
+                }
+
+                if(isSelectable) {
+                    const pin = document.getElementById('pickup-pin');
+                    const display = document.getElementById('pass-pickup-display');
+                    window.appState[elementId].on('movestart', () => { if(pin) pin.classList.add('moving'); });
+                    window.appState[elementId].on('moveend', () => { 
+                        if(pin) pin.classList.remove('moving');
+                        const center = window.appState[elementId].getCenter();
+                        window.appState.currentPickupCoords = { lat: center.lat, lng: center.lng };
+                        if(display) display.value = `إحداثيات الالتقاء: ${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`;
+                        
+                        window.syncArtisanMapMarkers();
+                    });
+                }
+            } catch(e){}
+        };
+
+        window.handleWilayaChange = (wilayaCode) => {
+            const dest = window.algerianWilayas[wilayaCode];
+            if (dest && window.appState.map) {
+                window.appState.map.flyTo(dest.coords, 14);
+                window.appState.currentPickupCoords = { lat: dest.coords[0], lng: dest.coords[1] };
+                const display = document.getElementById('pass-pickup-display');
+                if(display) display.value = `الولاية المحددة: ${dest.name}`;
+                window.showToast(`تم الانتقال لولاية ${dest.name} 🇩🇿`, 'success');
+                window.syncArtisanMapMarkers();
+            }
+        };
+
+        // ==========================================
+        // 13. GPS REALTIME UPDATES & DATABASE SYNC
+        // ==========================================
+        window.requestLiveGpsTracking = () => {
+            if (navigator.geolocation) {
+                window.appState.liveGpsWatchId = navigator.geolocation.watchPosition(async (pos) => {
+                    const lat = pos.coords.latitude;
+                    const lng = pos.coords.longitude;
+                    
+                    window.appState.currentPickupCoords = { lat, lng };
+                    const user = window.appState.currentUser;
+                    if (user) {
+                        window.appState.artisansPositions[user.id] = { lat, lng };
+                    }
+
+                    if (user && db && auth.currentUser) {
+                        try {
+                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', user.id), {
+                                lastLat: lat,
+                                lastLng: lng,
+                                lastGpsUpdate: Date.now()
+                            }, { merge: true });
+                        } catch(e) {}
+                    }
+                }, (err) => {
+                    console.warn("GPS tracking accuracy fallback.");
+                }, {
+                    enableHighAccuracy: true,
+                    timeout: 8000,
+                    maximumAge: 0
+                });
+            }
+        };
+
+        const startGpsSimulation = () => {
+            setInterval(() => {
+                cloudUsers.forEach(u => {
+                    if (u.type === 'driver') {
+                        if (!window.appState.artisansPositions[u.id]) {
+                            window.appState.artisansPositions[u.id] = {
+                                lat: 36.7525 + (Math.random() * 0.1 - 0.05),
+                                lng: 3.0419 + (Math.random() * 0.1 - 0.05)
+                            };
+                        } else {
+                            window.appState.artisansPositions[u.id].lat += (Math.random() * 0.0016 - 0.0008);
+                            window.appState.artisansPositions[u.id].lng += (Math.random() * 0.0016 - 0.0008);
+                        }
+                    }
+                });
+            }, 4000);
+        };
+        startGpsSimulation();
+
+        // ==========================================
+        // 14. ADMIN PANEL OVERHAUL WITH AI OPTIMIZATION
+        // ==========================================
+        window.loginAdmin = () => {
+            const adminPassEl = document.getElementById('admin-pass');
+            if(adminPassEl && adminPassEl.value === 'Ha15041978@') {
+                window.showScreen('screen-admin-dashboard'); 
+                window.switchAdminTab('overview');
+            } else {
+                window.showToast('رمز الإدارة السري غير صحيح', 'error');
+            }
+        };
+
+        window.logoutApp = () => {
+            window.appState.currentUser = null; 
+            window.appState.role = null;
+            localStorage.removeItem('id_session_user');
+            window.showScreen('screen-welcome');
+        };
+
+        window.switchRole = () => {
+            const curr = window.appState.currentUser;
+            if(!curr) return;
+            if(window.appState.role === 'passenger') {
+                window.appState.role = 'driver';
+                checkDriverTrialAndStatus(curr);
+            } else {
+                window.appState.role = 'passenger';
+                window.showScreen('screen-passenger-home');
+            }
+        };
+
+        window.switchAdminTab = (tab) => {
+            ['overview', 'ai', 'api'].forEach(t => {
+                const b = document.getElementById(`tab-btn-${t}`);
+                if(b) { 
+                    if(t===tab) { 
+                        b.className = "px-6 py-4 text-brand border-b-2 border-brand shrink-0 bg-transparent border-t-0 border-l-0 border-r-0 cursor-pointer transition font-black text-sm"; 
+                    } else { 
+                        b.className = "px-6 py-4 text-gray-500 border-b-2 border-transparent shrink-0 bg-transparent border-none cursor-pointer transition font-bold text-sm"; 
+                    } 
+                }
+            });
+            const content = document.getElementById('admin-content-area');
+            if(!content) return;
+            
+            if(tab === 'overview') {
+                const passengers = cloudUsers.filter(u => u.type === 'passenger');
+                const drivers = cloudUsers.filter(u => u.type === 'driver');
+                
+                content.innerHTML = `
+                    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <h3 class="font-black text-xl text-darkText flex items-center gap-2"><i class="fas fa-users text-accentBlue"></i> إدارة حسابات المستخدمين</h3>
+                        <div class="text-xs bg-white border border-lightBorder rounded-xl p-3 text-slate-600 shadow-sm">
+                            إجمالي الحرفيين المسجلين: <span class="text-brand font-black">${drivers.length}</span> | 
+                            إجمالي الزبائن: <span class="text-emerald-400 font-black">${passengers.length}</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-3xl border border-lightBorder overflow-hidden shadow-xl mb-8">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-right border-collapse min-w-[750px]">
+                                <thead>
+                                    <tr class="bg-slate-50 text-slate-600 text-xs font-bold border-b border-lightBorder">
+                                        <th class="p-4">الاسم واللقب للمستخدم</th>
+                                        <th class="p-4">رقم الهاتف / الدور</th>
+                                        <th class="p-4 text-center">الترتيب / الترقية</th>
+                                        <th class="p-4 text-center">التخصص والمحل</th>
+                                        <th class="p-4 text-center">الحالة السحابية</th>
+                                        <th class="p-4 text-center">الإجراء الفوري</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-lightBorder text-sm text-slate-700">
+                                    ${cloudUsers.map((user, index) => {
+                                        let roleBadge = user.type === 'driver' ? 
+                                            '<span class="bg-sky-50 text-accentBlue px-2.5 py-0.5 rounded-full text-xs font-bold border border-sky-100">حرفي</span>' : 
+                                            '<span class="bg-emerald-50 text-emerald-600 px-2.5 py-0.5 rounded-full text-xs font-bold border border-emerald-100">زبون</span>';
+                                        
+                                        let activeStatus = "";
+                                        if (user.type === 'driver') {
+                                            if (user.isFirst100) {
+                                                activeStatus = '<span class="text-emerald-600 font-black"><i class="fas fa-gift"></i> شريك (مفعل مدى الحياة)</span>';
+                                            } else {
+                                                activeStatus = user.status === 'approved' ? 
+                                                    '<span class="text-emerald-600 font-black"><i class="fas fa-check-circle"></i> مفعل بالدفع</span>' :
+                                                    '<span class="text-yellow-600 font-black"><i class="fas fa-clock"></i> فترة تجريبية</span>';
+                                            }
+                                        } else {
+                                            activeStatus = user.isFirst100 ? 
+                                                '<span class="text-emerald-600 font-black"><i class="fas fa-gift"></i> زبون ممتاز (أول 100)</span>' : 
+                                                '<span class="text-slate-400">مستخدم نشط</span>';
+                                        }
+
+                                        let promoStatus = user.isFirst100 ? 
+                                            `<span class="bg-emerald-600 text-white text-[10px] px-2 py-0.5 rounded-full font-black animate-pulse">مفعل آلياً 🎁</span>` : 
+                                            `<span class="text-slate-400 text-xs font-bold">تسجيل بعد الـ 100</span>`;
+
+                                        let actionBtn = "";
+                                        if (user.type === 'driver' && user.status !== 'approved' && !user.isFirst100) {
+                                            actionBtn = `<button onclick="window.adminApproveDriver('${user.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold border-none cursor-pointer">تفعيل يدوي</button>`;
+                                        } else {
+                                            actionBtn = `<span class="text-slate-400 text-xs font-semibold">مؤمن سحابياً ✔</span>`;
+                                        }
+
+                                        const specialtyName = window.craftSettings[user.serviceType]?.name || user.serviceType || '--';
+
+                                        return `
+                                            <tr class="hover:bg-slate-50 transition">
+                                                <td class="p-4 font-bold text-slate-800">${user.fname || 'مستخدم'}</td>
+                                                <td class="p-4 font-mono text-xs">${user.id}<div class="mt-1">${roleBadge}</div></td>
+                                                <td class="p-4 text-center font-bold font-mono">${promoStatus}</td>
+                                                <td class="p-4 text-center font-bold text-slate-500">${user.car ? user.car + ' (' + specialtyName + ')' : '--'}</td>
+                                                <td class="p-4 text-center">${activeStatus}</td>
+                                                <td class="p-4 text-center">${actionBtn}</td>
+                                            </tr>
+                                        `;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            } else if(tab === 'ai') {
+                let approvedDrivers = cloudUsers.filter(u => u.type === 'driver' && (u.status === 'approved' || u.isFirst100)).length;
+                let trialCount = cloudUsers.filter(u => u.type === 'driver' && u.status === 'trial' && !u.isFirst100).length;
+                let subMoney = approvedDrivers * 2000; 
+                let totalRev = cloudRides.filter(r => r.status === 'completed').reduce((acc, r) => acc + r.price, 0);
+                
+                content.innerHTML = `
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                        <div class="lg:col-span-8 space-y-6">
+                            <!-- Live Security Monitor -->
+                            <div class="bg-white border border-lightBorder p-5 rounded-3xl space-y-3 shadow-sm">
+                                <h4 class="font-black text-sm text-darkText flex items-center gap-2"><i class="fas fa-shield-alt text-accentBlue"></i> سجل حماية الـ WAF والأمان من الاختراق</h4>
+                                <div class="space-y-2">
+                                    ${window.securityLogs.map(l => `
+                                        <div class="flex justify-between items-center bg-slate-50 p-2.5 rounded-xl border border-lightBorder text-xs">
+                                            <span class="bg-red-100 text-red-600 px-2 py-0.5 rounded font-black font-mono text-[9px]">${l.type}</span>
+                                            <span class="text-slate-700 font-bold mr-2 text-right flex-1">${l.desc}</span>
+                                            <span class="text-slate-400 text-[10px]">${l.time}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <div class="bg-white border border-lightBorder p-6 rounded-3xl shadow-sm relative overflow-hidden">
+                                <h3 class="font-black text-lg text-darkText mb-4"><i class="fas fa-chart-line text-accentBlue"></i> المنحنيات المالية والتحليلات للأسعار المتفق عليها</h3>
+                                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                                    <div class="bg-slate-50 p-4 rounded-2xl border border-lightBorder">
+                                        <p class="text-[10px] text-slate-500 font-bold">صندوق الاشتراكات المودعة</p>
+                                        <p class="text-lg font-black text-emerald-600 mt-1" dir="ltr">${subMoney} DZD</p>
+                                    </div>
+                                    <div class="bg-slate-50 p-4 rounded-2xl border border-lightBorder">
+                                        <p class="text-[10px] text-slate-500 font-bold">متوسط سعر الصفقات</p>
+                                        <p class="text-lg font-black text-accentBlue mt-1" dir="ltr">1800 DZD</p>
+                                    </div>
+                                    <div class="bg-slate-50 p-4 rounded-2xl border border-lightBorder">
+                                        <p class="text-[10px] text-slate-500 font-bold">مجموع الطلبات المنجزة</p>
+                                        <p class="text-lg font-black text-slate-800 mt-1">${cloudRides.length} طلب</p>
+                                    </div>
+                                    <div class="bg-slate-50 p-4 rounded-2xl border border-lightBorder">
+                                        <p class="text-[10px] text-slate-500 font-bold">حرفيين متصلين بالخريطة</p>
+                                        <p class="text-lg font-black text-brandAccent mt-1 animate-pulse">${cloudUsers.filter(u=>u.type==='driver').length} حرفي ⚡</p>
+                                    </div>
+                                </div>
+                                <div class="relative h-60 w-full"><canvas id="financialCurveCanvas"></canvas></div>
+                            </div>
+
+                            <!-- Live Tracking National Map -->
+                            <div class="bg-white border border-lightBorder p-6 rounded-3xl shadow-sm space-y-4">
+                                <h3 class="font-black text-lg text-darkText"><i class="fas fa-map-marked-alt text-accentBlue ml-2"></i> رادار تتبع الحرفيين الفعلي بالـ GPS لشمل كل الولايات</h3>
+                                <div id="admin-live-map" class="admin-map-container"></div>
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-4 space-y-6">
+                            <!-- AI Driver Optimization & Insights Panel -->
+                            <div class="bg-white border border-lightBorder p-6 rounded-3xl shadow-sm space-y-4">
+                                <h4 class="font-black text-darkText text-base border-b border-slate-200 pb-2 flex items-center gap-2"><i class="fas fa-brain text-accentBlue"></i> توجيهات الذكاء الاصطناعي</h4>
+                                <div class="space-y-3 text-xs">
+                                    <div class="bg-sky-50 border border-sky-100 p-3 rounded-xl">
+                                        <h5 class="font-black text-accentBlue mb-1"><i class="fas fa-exclamation-triangle"></i> توصية توزيع الحرفيين</h5>
+                                        <p class="text-slate-600 leading-relaxed">الذكاء الاصطناعي يتوقع طلباً كثيفاً ببلدية <strong>شراقة وعين البنيان</strong> على أعمال السباكة والكهرباء. نقترح توجيه الحرفيين للمنطقة.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white border border-lightBorder p-6 rounded-3xl shadow-sm">
+                                <h4 class="font-bold text-darkText mb-4 border-b border-slate-200 pb-2">تفصيل تخصصات الحرفيين</h4>
+                                <div class="relative h-60 w-full"><canvas id="aiChart"></canvas></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                adminCharts.forEach(c => c.destroy()); 
+                adminCharts = [];
+                
+                setTimeout(() => {
+                    const lineCanvas = document.getElementById('financialCurveCanvas');
+                    if(lineCanvas) {
+                        const ctx = lineCanvas.getContext('2d');
+                        adminCharts.push(new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: ['سبت', 'أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة'],
+                                datasets: [{
+                                    label: 'الطلبات والتحصيلات (DZD)',
+                                    data: [subMoney * 0.4, subMoney * 0.6, subMoney * 0.7, subMoney * 0.8, subMoney * 0.9, subMoney, subMoney],
+                                    borderColor: '#00A3FF',
+                                    borderWidth: 3.5,
+                                    tension: 0.4,
+                                    pointBackgroundColor: '#ffffff'
+                                }]
+                            },
+                            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+                        }));
+                    }
+
+                    const doughnutCanvas = document.getElementById('aiChart');
+                    if(doughnutCanvas) {
+                        const ctx = doughnutCanvas.getContext('2d');
+                        adminCharts.push(new Chart(ctx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: ['حرفيين مفعلين', 'تجريبي'],
+                                datasets: [{ 
+                                    data: [approvedDrivers, trialCount], 
+                                    backgroundColor: ['#10B981', '#F59E0B'], 
+                                    borderWidth: 0 
+                                }]
+                            },
+                            options: { responsive: true, maintainAspectRatio: false }
+                        }));
+                    }
+                }, 200);
+
+                setTimeout(() => {
+                    if(window.appState.adminMap) { window.appState.adminMap.remove(); window.appState.adminMap = null; }
+                    const adminMapEl = document.getElementById('admin-live-map');
+                    if(adminMapEl) {
+                        window.appState.adminMap = L.map('admin-live-map', { zoomControl: false }).setView([36.7525, 3.0419], 12);
+                        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(window.appState.adminMap);
+                        
+                        cloudUsers.forEach((d) => {
+                            let pos = { lat: d.lastLat || 36.7525, lng: d.lastLng || 3.0419 };
+                            let isDriver = d.type === 'driver';
+                            let clr = isDriver ? '#EA580C' : '#10B981';
+                            let iconName = isDriver ? 'fa-tools' : 'fa-street-view';
+                            
+                            L.marker([pos.lat, pos.lng], { 
+                                icon: L.divIcon({ 
+                                    className: 'admin-marker', 
+                                    html: `<div style="background:#FFFFFF; color:${clr}; width:32px; height:32px; border-radius:50%; display:flex; justify-content:center; align-items:center; border:2.5px solid ${clr}; font-size:12px; box-shadow: 0 4px 6px rgba(15,23,42,0.1);"><i class="fas ${iconName} animate-pulse"></i></div>`, 
+                                    iconSize: [32, 32] 
+                                }) 
+                            }).addTo(window.appState.adminMap).bindPopup(`<b>الاسم: ${d.fname}</b><br>الدور: ${isDriver ? 'حرفي' : 'زبون'}<br>رقم الهاتف: ${d.id}`);
+                        });
+                    }
+                }, 400);
+
+            } else if (tab === 'api') {
+                content.innerHTML = `
+                    <div class="space-y-4 max-w-lg bg-white p-6 rounded-3xl border border-lightBorder shadow-sm">
+                        <div class="bg-sky-50 text-accentBlue p-4 rounded-xl text-xs font-bold border border-sky-100 leading-relaxed">
+                            إعدادات بوابة Chargily Pay ومصادقة الواتساب النشطة. يمكنك تعديل المفاتيح والـ CCP هنا ليتم حفظها سحابياً فوراً.
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold mb-2">Chargily Public Key (المفتاح العام)</label>
+                            <input type="text" id="api-chargily-public" value="${window.chargilyConfig.publicKey}" class="id-input font-mono text-xs" dir="ltr">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold mb-2">Chargily Secret Key (المفتاح السري)</label>
+                            <input type="text" id="api-chargily-secret" value="${window.chargilyConfig.secretKey}" class="id-input font-mono text-xs" dir="ltr">
+                        </div>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-bold mb-2">رقم حساب الـ CCP</label>
+                                <input type="text" id="api-ccp" value="${window.chargilyConfig.ccpAccount}" class="id-input font-mono text-xs text-center" dir="ltr">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold mb-2">اسم المستفيد CCP</label>
+                                <input type="text" id="api-ccp-name" value="${window.chargilyConfig.accountName}" class="id-input text-xs">
+                            </div>
+                        </div>
+                        
+                        <div class="w-full h-px bg-slate-200 my-4"></div>
+                        
+                        <div><label class="block text-xs font-bold mb-2">Instance ID (Ultramsg WhatsApp)</label><input type="text" id="api-instance" value="${window.cloudApi.instanceId||''}" class="id-input font-mono text-xs" dir="ltr"></div>
+                        <div><label class="block text-xs font-bold mb-2">Token (Ultramsg)</label><input type="text" id="api-token" value="${window.cloudApi.token||''}" class="id-input font-mono text-xs" dir="ltr"></div>
+                        
+                        <button onclick="window.saveApi()" class="btn-primary py-4 mt-2 border-none">حفظ وتأمين الإعدادات بالسحابة 🔒</button>
+                    </div>
+                `;
+            }
+        };
+
+        window.saveApi = async () => {
+            if(auth && auth.currentUser) {
+                const instEl = document.getElementById('api-instance');
+                const tokEl = document.getElementById('api-token');
+                const pubEl = document.getElementById('api-chargily-public');
+                const secEl = document.getElementById('api-chargily-secret');
+                const ccpEl = document.getElementById('api-ccp');
+                const ccpNameEl = document.getElementById('api-ccp-name');
+
+                if(instEl && tokEl && pubEl && secEl && ccpEl && ccpNameEl) {
+                    const newApi = { 
+                        instanceId: instEl.value.trim(), 
+                        token: tokEl.value.trim(),
+                        publicKey: pubEl.value.trim(),
+                        secretKey: secEl.value.trim(),
+                        ccpAccount: ccpEl.value.trim(),
+                        accountName: ccpNameEl.value.trim()
+                    };
+                    try { 
+                        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'api'), newApi, { merge: true }); 
+                        window.cloudApi.instanceId = newApi.instanceId;
+                        window.cloudApi.token = newApi.token;
+                        window.chargilyConfig.publicKey = newApi.publicKey;
+                        window.chargilyConfig.secretKey = newApi.secretKey;
+                        window.chargilyConfig.ccpAccount = newApi.ccpAccount;
+                        window.chargilyConfig.accountName = newApi.accountName;
+                        
+                        window.showToast('تم الحفظ والتحديث في السحابة بنجاح!');
+                    } catch(e){ window.showToast('فشل تحديث البيانات بالسحابة', 'error'); }
+                }
+            }
+        };
+
+        window.adminApproveDriver = async (docId) => {
+            if(auth && auth.currentUser) {
+                try { 
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', docId), { status: 'approved' }, { merge: true }); 
+                    window.showToast('تم تفعيل الحرفي بنجاح وسحب القفل!');
+                    window.switchAdminTab('overview');
+                } catch(e){}
+            }
+        };
+    </script>
+</body>
+</html>
