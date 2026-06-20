@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HRAIFI - حرايفي | التطبيق الأول للخدمات والحرفيين المعتمدين في الجزائر</title>
+    <title>HRAIFI - حرايفي | التطبيق الأول للحرفيين والخدمات المعتمدة في الجزائر</title>
     
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZJCGMM0BJ5"></script>
@@ -173,7 +173,8 @@
             adminActiveTab: 'accounts', // 'accounts', 'radar', 'chargily'
             adminPassword: 'Ha15041978@',
             tempOTP: null,
-            tempUserData: null
+            tempUserData: null,
+            activeMapType: 'street' // 'street' or 'satellite'
         };
         
         window.cloudApi = { 
@@ -320,7 +321,36 @@
 </head>
 <body class="antialiased">
 
-    <!-- Modal d'erreur de sécurité Firebase rules -->
+    <!-- Call Notification Full Screen Overlay -->
+    <div id="incoming-call-overlay" class="fixed inset-0 bg-slate-900/95 backdrop-blur-lg z-[999999] hidden flex flex-col justify-between p-8 text-center text-white">
+        <div class="mt-12 space-y-4">
+            <div class="relative w-24 h-24 mx-auto mb-6">
+                <div class="absolute inset-0 bg-accentBlue rounded-full animate-ping opacity-25"></div>
+                <div class="absolute inset-0 bg-accentBlue rounded-full animate-custom-ping opacity-10"></div>
+                <div class="w-24 h-24 bg-accentBlue text-white rounded-full flex items-center justify-center text-4xl shadow-xl relative z-10"><i class="fas fa-phone-alt"></i></div>
+            </div>
+            <h2 id="call-client-name" class="text-2xl font-black tracking-wide">زبون حرايفي جديد!</h2>
+            <p id="call-client-distance" class="text-sm text-slate-350 font-bold bg-white/10 px-4 py-1.5 rounded-full inline-block">على مسافة 4.5 كم منك</p>
+        </div>
+        
+        <div class="bg-white/5 border border-white/10 p-6 rounded-3xl space-y-2 text-right">
+            <h4 class="font-extrabold text-amber-400 text-sm"><i class="fas fa-tools ml-1"></i> العمل المطلوب بالتفصيل:</h4>
+            <p id="call-client-description" class="text-sm text-slate-200 leading-relaxed font-bold">يريد إصلاح أنبوب مياه مكسور في المطبخ فورا.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <button onclick="window.rejectIncomingRinging()" class="w-full bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 border-none cursor-pointer">
+                <i class="fas fa-phone-slash text-xl"></i>
+                <span>رفض الطلب</span>
+            </button>
+            <button onclick="window.acceptIncomingRinging()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-lg transition-all flex items-center justify-center gap-2 border-none cursor-pointer">
+                <i class="fas fa-check text-xl"></i>
+                <span>قبول الطلب والتوجه</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Firebase Rules Interceptor Error Modal -->
     <div id="firebase-rules-error-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[999999] hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-red-100 text-right font-sans">
             <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-3xl mx-auto"><i class="fas fa-exclamation-triangle"></i></div>
@@ -349,7 +379,6 @@
         </div>
     </div>
 
-    <!-- Écran de chargement initial -->
     <div id="screen-loading">
         <div class="hraifi-emblem mb-6 animate-pulse">
             <div class="hraifi-emblem-icons">
@@ -386,14 +415,14 @@
                 <i class="fas fa-share-alt text-slate-400"></i>
             </button>
             <div class="border-t border-slate-100 my-4 pt-4">
-                <p class="text-xs text-slate-400 text-center">HRAIFI Premium Edition v4.0</p>
+                <p class="text-xs text-slate-400 text-center">HRAIFI Premium Edition v5.0</p>
                 <p class="text-xs text-slate-400 text-center mt-1">صنع بفخر في الجزائر 🇩🇿</p>
             </div>
         </div>
     </div>
 
     <!-- 1. SCREEN ROLE ENTRANCE -->
-    <div id="screen-role-entrance" class="screen flex flex-col items-center justify-between p-6 bg-slate-50 animate-fade-in">
+    <div id="screen-role-entrance" class="screen flex flex-col items-center justify-between p-6 bg-slate-50">
         <div class="w-full text-center mt-12">
             <div class="hraifi-emblem mx-auto mb-6">
                 <div class="hraifi-emblem-icons">
@@ -411,7 +440,7 @@
             </div>
         </div>
 
-        <div class="w-full space-y-4 max-w-sm">
+        <div class="w-full space-y-4 max-w-sm font-sans text-right">
             <h3 class="text-center font-bold text-slate-700 mb-2">اختر صفتك للدخول والتحقق الآمن:</h3>
             
             <button onclick="window.selectRole('passenger')" class="w-full bg-white border-2 border-slate-200 hover:border-accentBlue p-4 rounded-2xl flex items-center gap-4 transition-all duration-300 text-right shadow-sm hover:shadow-md">
@@ -436,52 +465,60 @@
             </button>
         </div>
 
-        <p class="text-xs text-slate-400 mt-4 text-center">باستخدامك للتطبيق، أنت توافق على شروط الاستخدام وسياسة الخصوصية لـ HRAIFI الجزائر.</p>
+        <p class="text-xs text-slate-400 mt-4 text-center">باستخدامك للتطبيق، أنت توافق على شروط الاستخدام لـ HRAIFI الجزائر.</p>
     </div>
 
     <!-- 2. SCREEN ARTISAN AUTH & REGISTRATION -->
     <div id="screen-driver-auth" class="screen bg-slate-50">
         <header class="bg-white p-4 sticky top-0 z-50 border-b border-slate-100 flex items-center justify-between">
             <button onclick="window.showScreen('screen-role-entrance')" class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-700"><i class="fas fa-arrow-right"></i></button>
-            <h2 class="font-black text-lg text-slate-800">تسجيل وتأكيد الحرفيين</h2>
+            <h2 class="font-black text-lg text-slate-800">بوابة الحرفي المعتمد</h2>
             <div class="w-10"></div>
         </header>
 
-        <div class="p-6 max-w-md mx-auto space-y-4">
+        <div class="p-6 max-w-md mx-auto space-y-4 text-right">
             <div class="bg-amber-50 border border-amber-200 p-4 rounded-2xl text-right">
-                <h4 class="font-black text-amber-900 text-sm">🎁 ميزة الأوائل نشطة!</h4>
-                <p class="text-xs text-amber-700 mt-1">الـ 100 حرفي الأوائل يحصلون على اشتراك دائم مجاني بدون دفع أي رسوم!</p>
-            </div>
-
-            <div>
-                <label class="block text-right text-xs font-bold text-slate-600 mb-1">الاسم واللقب كاملين:</label>
-                <input type="text" id="dr-reg-name" placeholder="مثال: محمد بلحاج" class="id-input">
+                <h4 class="font-black text-amber-900 text-sm">💡 دخول سريع للحرفيين المسجلين:</h4>
+                <p class="text-xs text-amber-700 mt-1">إذا كنت مسجلاً مسبقاً، أدخل رقم هاتفك وستتحول تلقائياً لشاشة إدخال رقمك السري دون الحاجة لتكرار التسجيل!</p>
             </div>
 
             <div>
                 <label class="block text-right text-xs font-bold text-slate-600 mb-1">رقم هاتف WhatsApp الخاص بك:</label>
-                <input type="tel" id="dr-reg-phone" placeholder="مثال: 0670472249" class="id-input font-mono text-left" dir="ltr">
+                <input type="tel" id="dr-reg-phone" placeholder="مثال: 0670472249" class="id-input font-mono text-left" dir="ltr" oninput="window.handleDriverPhoneLookup(this.value)">
             </div>
 
-            <div>
-                <label class="block text-right text-xs font-bold text-slate-600 mb-1">تخصص الحرفة الرئيسي:</label>
-                <select id="dr-reg-specialty" class="id-input bg-white font-bold">
-                    <option value="electrician">💡 كهربائي متميز</option>
-                    <option value="plumber">💧 مرصص مياه وبلومبي</option>
-                    <option value="painter">🎨 دهان طلاء وتزيين</option>
-                    <option value="builder">🧱 بناء وأشغال عامة</option>
-                    <option value="cleaning">🧹 امرأة نظافة وخدمات منزلية</option>
-                </select>
+            <!-- This section is shown/hidden dynamically if user is new -->
+            <div id="artisan-new-fields" class="space-y-4">
+                <div>
+                    <label class="block text-right text-xs font-bold text-slate-600 mb-1">الاسم واللقب كاملين:</label>
+                    <input type="text" id="dr-reg-name" placeholder="مثال: محمد بلحاج" class="id-input">
+                </div>
+
+                <div>
+                    <label class="block text-right text-xs font-bold text-slate-600 mb-1">تخصص الحرفة الرئيسي:</label>
+                    <select id="dr-reg-specialty" class="id-input bg-white font-bold">
+                        <option value="electrician">💡 كهربائي متميز</option>
+                        <option value="plumber">💧 مرصص مياه وبلومبي</option>
+                        <option value="painter">🎨 دهان طلاء وتزيين</option>
+                        <option value="builder">🧱 بناء وأشغال عامة</option>
+                        <option value="cleaning">🧹 امرأة نظافة وخدمات منزلية</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-right text-xs font-bold text-slate-600 mb-1">الولاية الحالية:</label>
+                    <select id="dr-reg-wilaya" class="id-input bg-white font-bold">
+                        <!-- Loaded dynamically via JS -->
+                    </select>
+                </div>
             </div>
 
-            <div>
-                <label class="block text-right text-xs font-bold text-slate-600 mb-1">الولاية الحالية:</label>
-                <select id="dr-reg-wilaya" class="id-input bg-white font-bold">
-                    <!-- Loaded dynamically via JS -->
-                </select>
+            <div id="artisan-password-field" class="space-y-1">
+                <label class="block text-right text-xs font-bold text-slate-600 mb-1">كلمة المرور السرية للحماية:</label>
+                <input type="password" id="dr-reg-password" placeholder="أدخل كلمة مرور حماية الحساب" class="id-input font-mono">
             </div>
 
-            <button onclick="window.sendArtisanOTP()" class="btn-primary py-4 text-base font-black">
+            <button onclick="window.sendArtisanOTP()" id="btn-artisan-submit" class="btn-primary py-4 text-base font-black">
                 <i class="fab fa-whatsapp text-lg"></i>
                 <span>تسجيل وإرسال رمز التحقق للواتساب</span>
             </button>
@@ -518,22 +555,27 @@
     <div id="screen-client-auth" class="screen bg-slate-50">
         <header class="bg-white p-4 sticky top-0 z-50 border-b border-slate-100 flex items-center justify-between">
             <button onclick="window.showScreen('screen-role-entrance')" class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-700"><i class="fas fa-arrow-right"></i></button>
-            <h2 class="font-black text-lg text-slate-800">تسجيل الزبائن</h2>
+            <h2 class="font-black text-lg text-slate-800">بوابة الزبائن</h2>
             <div class="w-10"></div>
         </header>
 
-        <div class="p-6 max-w-md mx-auto space-y-4">
-            <div>
-                <label class="block text-right text-xs font-bold text-slate-600 mb-1">اسمك الكريم:</label>
-                <input type="text" id="cl-reg-name" placeholder="مثال: ياسين الجزائري" class="id-input">
+        <div class="p-6 max-w-md mx-auto space-y-4 text-right">
+            <div class="bg-blue-50 border border-blue-200 p-4 rounded-2xl text-right">
+                <h4 class="font-black text-blue-900 text-sm">💡 تسجيل ودخول فوري آمن:</h4>
+                <p class="text-xs text-blue-700 mt-1">أدخل رقم هاتفك. إذا كنت مسجلاً مسبقاً، سيتم الترحيب بك وتأكيد دخولك مباشرة بلمسة واحدة دون كتابة اسمك ثانية!</p>
             </div>
 
             <div>
                 <label class="block text-right text-xs font-bold text-slate-600 mb-1">رقم هاتف WhatsApp الخاص بك:</label>
-                <input type="tel" id="cl-reg-phone" placeholder="مثال: 0550123456" class="id-input font-mono text-left" dir="ltr">
+                <input type="tel" id="cl-reg-phone" placeholder="مثال: 0550123456" class="id-input font-mono text-left" dir="ltr" oninput="window.handleClientPhoneLookup(this.value)">
             </div>
 
-            <button onclick="window.sendClientOTP()" class="btn-primary py-4 text-base font-black">
+            <div id="client-new-fields">
+                <label class="block text-right text-xs font-bold text-slate-600 mb-1">اسمك الكريم:</label>
+                <input type="text" id="cl-reg-name" placeholder="مثال: ياسين الجزائري" class="id-input">
+            </div>
+
+            <button onclick="window.sendClientOTP()" id="btn-client-submit" class="btn-primary py-4 text-base font-black">
                 <i class="fab fa-whatsapp text-lg"></i>
                 <span>تسجيل وإرسال رمز التحقق للواتساب</span>
             </button>
@@ -541,7 +583,7 @@
     </div>
 
     <!-- 4. SCREEN PASSENGER HOME -->
-    <div id="screen-passenger-home" class="screen animate-fade-in">
+    <div id="screen-passenger-home" class="screen">
         <header class="bg-white/90 backdrop-blur-md sticky top-0 z-50 px-4 py-3 flex items-center justify-between border-b border-slate-100">
             <button onclick="window.openSidebar()" class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-700 text-lg transition-all active:scale-95"><i class="fas fa-bars"></i></button>
             <div class="flex items-center gap-2">
@@ -560,10 +602,24 @@
                 <i id="main-map-pin" class="fas fa-map-pin map-center-pin animate-bounce-slow"></i>
                 <div class="map-center-dot"></div>
             </div>
+            
+            <!-- Map Controls for Client: Zoom in, Zoom out, Map Type Toggle (Satellite / Street) -->
+            <div class="absolute top-4 left-4 z-[999] flex flex-col gap-2">
+                <button onclick="window.zoomInMap()" class="w-10 h-10 bg-white rounded-xl shadow-md flex items-center justify-center font-bold text-lg text-slate-800 border border-slate-200 cursor-pointer active:scale-95 transition-all">+</button>
+                <button onclick="window.zoomOutMap()" class="w-10 h-10 bg-white rounded-xl shadow-md flex items-center justify-center font-bold text-lg text-slate-800 border border-slate-200 cursor-pointer active:scale-95 transition-all">-</button>
+            </div>
+
+            <div class="absolute top-4 right-4 z-[999]">
+                <button onclick="window.toggleMapType()" id="btn-map-type" class="bg-brand text-white px-3 py-2 rounded-xl shadow-md text-xs font-black flex items-center gap-1.5 border-none cursor-pointer">
+                    <i class="fas fa-globe"></i>
+                    <span>قمر صناعي</span>
+                </button>
+            </div>
+
             <button onclick="window.getCurrentLocation()" class="absolute bottom-4 left-4 z-[999] w-12 h-12 bg-white rounded-full shadow-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:text-accentBlue active:scale-95 transition-all"><i class="fas fa-crosshairs text-xl"></i></button>
         </div>
 
-        <div class="p-4 space-y-5 bg-slate-50 min-h-[50vh]">
+        <div class="p-4 space-y-5 bg-slate-50 min-h-[50vh] font-sans text-right">
             <div>
                 <div class="flex items-center justify-between mb-2">
                     <h3 class="font-extrabold text-slate-800 text-base">ما هي الخدمة التي تحتاجها اليوم؟</h3>
@@ -631,7 +687,7 @@
             <div class="w-10"></div>
         </header>
 
-        <div class="p-4 max-w-md mx-auto space-y-6">
+        <div class="p-4 max-w-md mx-auto space-y-6 text-right">
             <div class="bg-white rounded-3xl p-6 text-center border border-slate-200/60 shadow-sm relative overflow-hidden">
                 <div class="absolute top-4 left-4 bg-emerald-50 text-emerald-600 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1">
                     <span class="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span> متصل الآن
@@ -677,7 +733,7 @@
             <button onclick="window.centerArtisanRadarMap()" class="absolute bottom-4 left-4 z-[999] w-10 h-10 bg-white rounded-full shadow-lg border border-slate-200 flex items-center justify-center text-slate-700 hover:text-accentBlue transition-all"><i class="fas fa-crosshairs"></i></button>
         </div>
 
-        <div class="p-4 max-w-md mx-auto space-y-4">
+        <div class="p-4 max-w-md mx-auto space-y-4 text-right">
             <div id="artisan-trial-warning" class="bg-amber-50 border border-amber-200 p-4 rounded-2xl hidden">
                 <p class="text-xs text-amber-800 font-bold leading-relaxed text-right">أنت في الفترة التجريبية المجانية (متبقي <span id="artisan-trial-days">30</span> يوم). يمكنك بعدها تفعيل حسابك بـ 2000 د.ج سنوياً.</p>
             </div>
@@ -687,7 +743,6 @@
                 <h3 class="font-extrabold text-slate-800 text-sm">طلبات الصيانة القريبة من موقعك (في نطاق 100 كم)</h3>
                 
                 <div id="artisan-live-broadcast-box" class="space-y-3">
-                    <!-- Dynamic client broadcasts go here -->
                     <div id="artisan-no-orders" class="text-center py-8 text-slate-400">
                         <i class="fas fa-broadcast-tower text-4xl mb-2 text-slate-300"></i>
                         <p class="text-sm font-bold">لا توجد طلبات جديدة في محيطك حالياً.</p>
@@ -776,7 +831,6 @@
             </div>
             
             <div class="flex items-center gap-2">
-                <!-- Seed Cloud Data Helper Button (Resolves issue where database starts empty) -->
                 <button onclick="window.triggerCloudSeeding()" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs font-black px-4 py-2 rounded-xl border-none shadow-md flex items-center gap-1.5 transition-all">
                     <i class="fas fa-database"></i>
                     <span>شحن بيانات سحابية تجريبية</span>
@@ -793,7 +847,7 @@
                 </button>
                 <button id="tab-btn-radar" onclick="window.switchAdminTab('radar')" class="admin-tab-btn py-4 px-2 text-xs md:text-sm font-bold text-slate-600 hover:text-slate-900 flex items-center gap-2">
                     <i class="fas fa-satellite-dish"></i>
-                    <span>تتبع الـ GPS الفعلي</span>
+                    <span>تتبع الـ GPS والتحليلات</span>
                 </button>
                 <button id="tab-btn-chargily" onclick="window.switchAdminTab('chargily')" class="admin-tab-btn py-4 px-2 text-xs md:text-sm font-bold text-slate-600 hover:text-slate-900 flex items-center gap-2">
                     <i class="fas fa-wallet"></i>
@@ -806,7 +860,7 @@
             <!-- TAB 1 CONTENT -->
             <div id="admin-tab-content-accounts" class="admin-tab-content space-y-6">
                 <!-- Advanced AI stats header -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-right">
                     <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm flex items-center justify-between">
                         <div>
                             <p class="text-[10px] text-slate-400 font-bold">المنخرطين المتصلين</p>
@@ -831,12 +885,12 @@
                 </div>
 
                 <!-- Live Cloud User Database -->
-                <div class="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
+                <div class="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden text-right">
                     <div class="p-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
                         <h3 class="font-extrabold text-slate-800 text-sm">قائمة المستخدمين المسجلين في السحاب</h3>
-                        <span class="text-xs text-slate-500 font-bold">انقر فوق أي حساب لحذفه في حال عدم الالتزام بالشروط</span>
+                        <span class="text-xs text-slate-500 font-bold">حذف الحسابات غير الملتزمة فورا</span>
                     </div>
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto font-sans">
                         <table class="w-full text-right border-collapse">
                             <thead>
                                 <tr class="bg-slate-50 text-slate-500 font-extrabold text-xs border-b border-slate-100">
@@ -856,32 +910,47 @@
             </div>
 
             <!-- TAB 2 CONTENT -->
-            <div id="admin-tab-content-radar" class="admin-tab-content hidden space-y-6">
+            <div id="admin-tab-content-radar" class="admin-tab-content hidden space-y-6 text-right">
+                <!-- Map and type controls inside Admin dashboard map view -->
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm relative">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-extrabold text-slate-800 text-sm">مواقع الحرفيين والعملاء المباشرة (رصد الـ GPS السحابي التلقائي)</h3>
+                        
+                        <!-- Map type switch control for Admin map -->
+                        <button onclick="window.toggleAdminMapType()" id="btn-admin-map-type" class="bg-brand text-white px-3 py-1.5 rounded-xl text-xs font-black">
+                            قمر صناعي
+                        </button>
+                    </div>
+                    <div id="admin-map" class="admin-map-container" style="height: 420px;"></div>
+                </div>
+
                 <!-- Complex statistical charts requested by user -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                        <h3 class="font-extrabold text-slate-800 text-sm mb-4">المنحنى البياني للأرباح والتعاملات المالية بين الحرفيين والعملاء</h3>
-                        <div class="h-64 relative">
+                        <h3 class="font-extrabold text-slate-800 text-xs mb-4">المنحنى البياني للتعاملات المالية</h3>
+                        <div class="h-48 relative">
                             <canvas id="financeCurveChart"></canvas>
                         </div>
                     </div>
                     
                     <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                        <h3 class="font-extrabold text-slate-800 text-sm mb-4">أماكن ومستويات انتشار المنخرطين في الولايات</h3>
-                        <div class="h-64 relative">
+                        <h3 class="font-extrabold text-slate-800 text-xs mb-4">أماكن ومستويات انتشار المنخرطين</h3>
+                        <div class="h-48 relative">
                             <canvas id="userSpreadChart"></canvas>
                         </div>
                     </div>
-                </div>
 
-                <div class="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
-                    <h3 class="font-extrabold text-slate-800 text-sm mb-3">مواقع الحرفيين والعملاء المباشرة (رصد الـ GPS السحابي التلقائي)</h3>
-                    <div id="admin-map" class="admin-map-container" style="height: 420px;"></div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 class="font-extrabold text-slate-800 text-xs mb-4">نمو المشتركين الكلي بمرور الوقت</h3>
+                        <div class="h-48 relative">
+                            <canvas id="subscriberGrowthChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- TAB 3 CONTENT -->
-            <div id="admin-tab-content-chargily" class="admin-tab-content hidden space-y-6">
+            <div id="admin-tab-content-chargily" class="admin-tab-content hidden space-y-6 text-right">
                 <div class="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm space-y-4">
                     <h4 class="font-black text-slate-800 text-sm"><i class="fas fa-key text-purple-600"></i> تعديل إعدادات الدفع والمصادقة للواتساب السحابية</h4>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -916,32 +985,43 @@
         </div>
     </div>
 
-    <!-- APP CORE CONTROLLER & MODULES -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, onSnapshot, query, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hraifi-premium-app-id';
-        let db, auth;
+        // Firebase Configurations pointing directly to user's database: hraifi-b2d27
+        const firebaseConfig = {
+            apiKey: "AIzaSyD_-4o73n5QATbndGen5-HAwiSDMAwhc2k",
+            authDomain: "hraifi-b2d27.firebaseapp.com",
+            projectId: "hraifi-b2d27",
+            storageBucket: "hraifi-b2d27.firebasestorage.app",
+            messagingSenderId: "416160579018",
+            appId: "1:416160579018:web:2b3c27ca09ef109b156333",
+            measurementId: "G-ZJCGMM0BJ5"
+        };
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'hraifi-b2d27';
+        let db = null;
+        let auth = null;
         let isFirebaseActive = false;
+        
         let localUsersList = [];
         let localBroadcastList = [];
         let artisanMarkersList = [];
         let chartsInstances = [];
+        let ringingInterval = null;
+        let ringtoneAudioContext = null;
 
-        // Safe initialization of Firebase (Rule 3)
+        // Initialize Firebase and Auth First (Rule 3)
         try {
-            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                const firebaseConfig = JSON.parse(__firebase_config);
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                isFirebaseActive = true;
-                console.log("Firebase loaded securely.");
-            }
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            isFirebaseActive = true;
+            console.log("Firebase initialized successfully with config for project hraifi-b2d27.");
         } catch(e) {
-            console.warn("Falling back to simulated cloud context.", e);
+            console.warn("Could not initiate Firebase database connect.", e);
         }
 
         // Complete Wilayas loading logic
@@ -961,6 +1041,46 @@
             });
         };
 
+        // Detect if phone number is already registered in Firebase
+        window.handleDriverPhoneLookup = async (phone) => {
+            const trimmedPhone = phone.trim();
+            if (trimmedPhone.length < 8) return;
+
+            const targetUser = localUsersList.find(u => u.phone === trimmedPhone && u.type === 'driver');
+            const submitBtnSpan = document.querySelector('#btn-artisan-submit span');
+            
+            if (targetUser) {
+                // Already registered! Hide signup name & specialty selects, show message
+                document.getElementById('artisan-new-fields').classList.add('hidden');
+                if (submitBtnSpan) submitBtnSpan.innerText = "تسجيل الدخول السريع بالحساب المكتشف";
+                window.showToast(`أهلاً بك مجدداً كابتن ${targetUser.fname}! يرجى إدخال كلمة مرورك فقط للدخول.`, "info");
+            } else {
+                // New user! Restore registration inputs
+                document.getElementById('artisan-new-fields').classList.remove('hidden');
+                if (submitBtnSpan) submitBtnSpan.innerText = "تسجيل وإرسال رمز التحقق للواتساب";
+            }
+        };
+
+        window.handleClientPhoneLookup = async (phone) => {
+            const trimmedPhone = phone.trim();
+            if (trimmedPhone.length < 8) return;
+
+            const targetUser = localUsersList.find(u => u.phone === trimmedPhone && u.type === 'passenger');
+            const submitBtnSpan = document.querySelector('#btn-client-submit span');
+
+            if (targetUser) {
+                // Already registered! Hide name field
+                document.getElementById('client-new-fields').classList.add('hidden');
+                if (submitBtnSpan) submitBtnSpan.innerText = "دخول سريع للحساب المكتشف مباشرة";
+                window.showToast(`مرحباً بك مجدداً يا ${targetUser.fname}! سنقوم بالتحقق السريع من رقمك الآن.`, "info");
+            } else {
+                // New user! Restore registration inputs
+                document.getElementById('client-new-fields').classList.remove('hidden');
+                if (submitBtnSpan) submitBtnSpan.innerText = "تسجيل وإرسال رمز التحقق للواتساب";
+            }
+        };
+
+        // UltraMsg API Sender Integration
         window.sendRealWhatsAppMessage = async (phoneNum, text) => {
             try {
                 let formattedPhone = phoneNum.replace(/\D/g, ''); 
@@ -983,30 +1103,71 @@
                 const data = await response.json();
                 console.log("WhatsApp message sent successfully:", data);
             } catch(e) {
-                console.warn("Could not dispatch real WhatsApp notification. Check keys.", e);
+                console.warn("WhatsApp notification bypassed.", e);
+            }
+        };
+
+        // Background Messenger Ringtone Simulator
+        window.startBackgroundRinging = () => {
+            if (ringingInterval) return;
+            try {
+                ringtoneAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+                ringingInterval = setInterval(() => {
+                    if (ringtoneAudioContext) {
+                        const osc1 = ringtoneAudioContext.createOscillator();
+                        const osc2 = ringtoneAudioContext.createOscillator();
+                        const gainNode = ringtoneAudioContext.createGain();
+                        
+                        osc1.type = 'sine';
+                        osc1.frequency.value = 440; 
+                        osc2.type = 'sine';
+                        osc2.frequency.value = 480; 
+                        
+                        osc1.connect(gainNode);
+                        osc2.connect(gainNode);
+                        gainNode.connect(ringtoneAudioContext.destination);
+                        
+                        gainNode.gain.setValueAtTime(0, ringtoneAudioContext.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(0.3, ringtoneAudioContext.currentTime + 0.1);
+                        gainNode.gain.setValueAtTime(0.3, ringtoneAudioContext.currentTime + 1.2);
+                        gainNode.gain.linearRampToValueAtTime(0, ringtoneAudioContext.currentTime + 1.5);
+                        
+                        osc1.start();
+                        osc2.start();
+                        
+                        setTimeout(() => {
+                            try { osc1.stop(); osc2.stop(); } catch(e){}
+                        }, 1600);
+                    }
+                }, 2000);
+            } catch(e) {
+                console.warn("Audio Context init error", e);
+            }
+        };
+
+        window.stopBackgroundRinging = () => {
+            if (ringingInterval) {
+                clearInterval(ringingInterval);
+                ringingInterval = null;
+            }
+            if (ringtoneAudioContext) {
+                try { ringtoneAudioContext.close(); } catch(e){}
+                ringtoneAudioContext = null;
             }
         };
 
         window.onload = async function() {
             populateWilayas();
             
-            // Wait for auth before querying (Rule 3)
             if (isFirebaseActive) {
                 try {
-                    // Check custom token first as prioritized
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                    console.log("Authenticated successfully inside HRAIFI. UID:", auth.currentUser.uid);
+                    // Rule 3: Auth anonymous first before reading databases
+                    const credentials = await signInAnonymously(auth);
+                    console.log("Authenticated successfully inside HRAIFI. UID:", credentials.user.uid);
                     window.startCloudSync();
                 } catch(e) {
-                    console.error("Firebase auth error:", e);
+                    console.error("Firebase Auth initialization error:", e);
                 }
-            } else {
-                // If offline simulation fallback is active, generate local datasets
-                window.startOfflineLocalSimulation();
             }
 
             setTimeout(() => {
@@ -1046,7 +1207,7 @@
                 }
             }, (error) => console.error("Error reading settings snapshot", error));
 
-            // Sync Users
+            // Sync Users List (Rule 1 Path)
             onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'users'), (snapshot) => {
                 localUsersList = [];
                 snapshot.forEach(doc => {
@@ -1071,24 +1232,14 @@
             }, (error) => console.error("Error reading jobs snapshot", error));
         };
 
-        // Offline Simulator Fallback Dataset
-        window.startOfflineLocalSimulation = () => {
-            localUsersList = [
-                { id: "0661123456", fname: "عثمان التمسين", phone: "0661123456", type: "driver", serviceType: "plumber", wilaya: "13", isFirst100: true, lastLat: 34.8783, lastLng: -1.3150 },
-                { id: "0770987654", fname: "بشير الكهرومائي", phone: "0770987654", type: "driver", serviceType: "electrician", wilaya: "16", isFirst100: true, lastLat: 36.7525, lastLng: 3.0419 },
-                { id: "0550111222", fname: "امين البناء", phone: "0550111222", type: "driver", serviceType: "builder", wilaya: "31", isFirst100: false, status: "approved", lastLat: 35.6971, lastLng: -0.6308 }
-            ];
-            window.updateArtisansAndClientsData();
-        };
-
         // Seeding initial robust mock data if Firebase database is brand new (resolves user issue: database is empty)
         window.seedDefaultCloudData = async () => {
             console.log("Database empty. Auto-seeding active mock users to ensure immediate system playability.");
             const defaultMocks = [
-                { id: "0661999888", fname: "بلحاج السباك المعتمد", phone: "0661999888", type: "driver", serviceType: "plumber", wilaya: "16", isFirst100: true, lastLat: 36.7555, lastLng: 3.0459, trialStart: Date.now(), status: "approved" },
-                { id: "0554332211", fname: "حمزة الكهربائي المحترف", phone: "0554332211", type: "driver", serviceType: "electrician", wilaya: "16", isFirst100: true, lastLat: 36.7495, lastLng: 3.0389, trialStart: Date.now(), status: "approved" },
-                { id: "0771887766", fname: "سمير للدهان والتزيين", phone: "0771887766", type: "driver", serviceType: "painter", wilaya: "31", isFirst100: false, lastLat: 35.6971, lastLng: -0.6308, trialStart: Date.now(), status: "approved" },
-                { id: "0662334455", fname: "زهير لأعمال البناء والترميم", phone: "0662334455", type: "driver", serviceType: "builder", wilaya: "19", isFirst100: true, lastLat: 36.1900, lastLng: 5.4133, trialStart: Date.now(), status: "approved" },
+                { id: "0661999888", fname: "بلحاج السباك المعتمد", phone: "0661999888", type: "driver", serviceType: "plumber", password: "123", wilaya: "16", isFirst100: true, lastLat: 36.7555, lastLng: 3.0459, trialStart: Date.now(), status: "approved" },
+                { id: "0554332211", fname: "حمزة الكهربائي المحترف", phone: "0554332211", type: "driver", serviceType: "electrician", password: "123", wilaya: "16", isFirst100: true, lastLat: 36.7495, lastLng: 3.0389, trialStart: Date.now(), status: "approved" },
+                { id: "0771887766", fname: "سمير للدهان والتزيين", phone: "0771887766", type: "driver", serviceType: "painter", password: "123", wilaya: "31", isFirst100: false, lastLat: 35.6971, lastLng: -0.6308, trialStart: Date.now(), status: "approved" },
+                { id: "0662334455", fname: "زهير لأعمال البناء والترميم", phone: "0662334455", type: "driver", serviceType: "builder", password: "123", wilaya: "19", isFirst100: true, lastLat: 36.1900, lastLng: 5.4133, trialStart: Date.now(), status: "approved" },
                 { id: "0551112233", fname: "كريم الجزائري (زبون ممتاز)", phone: "0551112233", type: "passenger", isFirst100: true, lastLat: 36.7525, lastLng: 3.0419 }
             ];
 
@@ -1126,13 +1277,32 @@
 
         // Artisan OTP triggers
         window.sendArtisanOTP = async () => {
-            const name = document.getElementById('dr-reg-name').value.trim();
             const phone = document.getElementById('dr-reg-phone').value.trim();
+            const password = document.getElementById('dr-reg-password').value.trim();
+
+            if (!phone || !password) {
+                return window.showToast("يرجى ملء الهاتف والرقم السري أولاً", "error");
+            }
+
+            // Check if phone already exists to handle direct password login instead of OTP
+            const existingArtisan = localUsersList.find(u => u.phone === phone && u.type === 'driver');
+            if (existingArtisan) {
+                if (existingArtisan.password === password) {
+                    window.appState.currentUser = existingArtisan;
+                    window.showToast(`أهلاً بك مجدداً كابتن ${existingArtisan.fname}! تم تسجيل دخولك بنجاح.`, "success");
+                    window.checkArtisanStatusAndLaunch();
+                } else {
+                    window.showToast("كلمة المرور غير صحيحة للحساب المكتشف!", "error");
+                }
+                return;
+            }
+
+            const name = document.getElementById('dr-reg-name').value.trim();
             const specialty = document.getElementById('dr-reg-specialty').value;
             const wilaya = document.getElementById('dr-reg-wilaya').value;
 
-            if (!name || !phone) {
-                return window.showToast("يرجى ملء جميع البيانات لإتمام التسجيل", "error");
+            if (!name) {
+                return window.showToast("يرجى ملء جميع البيانات لإتمام التسجيل الجديد", "error");
             }
 
             // Generate OTP
@@ -1148,6 +1318,7 @@
                 phone: phone,
                 type: 'driver',
                 serviceType: specialty,
+                password: password,
                 wilaya: wilaya,
                 trialStart: Date.now(),
                 status: isFirst100 ? 'approved' : 'trial',
@@ -1167,11 +1338,24 @@
 
         // Client OTP triggers
         window.sendClientOTP = async () => {
-            const name = document.getElementById('cl-reg-name').value.trim();
             const phone = document.getElementById('cl-reg-phone').value.trim();
 
-            if (!name || !phone) {
-                return window.showToast("يرجى ملء جميع البيانات لإتمام التسجيل", "error");
+            if (!phone) {
+                return window.showToast("يرجى ملء رقم الهاتف أولاً", "error");
+            }
+
+            // Check if client already exists in database
+            const existingClient = localUsersList.find(u => u.phone === phone && u.type === 'passenger');
+            if (existingClient) {
+                window.appState.currentUser = existingClient;
+                window.showToast(`أهلاً بك مجدداً يا ${existingClient.fname}! تم تسجيل دخولك المباشر.`, "success");
+                window.showScreen('screen-passenger-home');
+                return;
+            }
+
+            const name = document.getElementById('cl-reg-name').value.trim();
+            if (!name) {
+                return window.showToast("يرجى ملء الاسم لإكمال التسجيل الجديد", "error");
             }
 
             window.appState.tempOTP = Math.floor(1000 + Math.random() * 9000).toString();
@@ -1286,10 +1470,6 @@
                 } catch(e) {
                     console.error("Firebase write error", e);
                 }
-            } else {
-                // If offline simulation, push manually
-                localBroadcastList.push(jobData);
-                window.updateArtisansJobFeed();
             }
 
             // Real WhatsApp alerts to nearby artisans in range
@@ -1307,7 +1487,7 @@
             });
 
             nearbyDrivers.forEach(async (dr) => {
-                const alertText = `مرحباً بك كابتن ${dr.fname}! زبون قريب منك في نطاق 100 كم يحتاج لخدمتك في تخصصك:\n*${description}*\nيرجى فتح التطبيق فوراً لامتلاك وقبول عرض العمل!`;
+                const alertText = `مرحباً بك كابتن ${dr.fname}! زبون قريب منك في نطاق 100 كم يحتاج لخدمتك في تخصصك:\n*${description}*\nيرجى فتح التطبيق فوراً للرد!`;
                 await window.sendRealWhatsAppMessage(dr.phone, alertText);
             });
 
@@ -1352,7 +1532,7 @@
                 listEl.innerHTML = `
                     <div class="text-center py-8 text-slate-400 bg-white rounded-3xl border border-slate-200/60 p-6">
                         <i class="fas fa-search text-3xl mb-2 text-slate-300"></i>
-                        <p class="font-bold text-slate-600">عذراً، لا يوجد حرفيين في هذا التخصص حالياً</p>
+                        <p class="font-bold text-slate-600">عذراً، لا يوجد حرفيين في هذا تخصص حالياً</p>
                     </div>
                 `;
                 return;
@@ -1420,7 +1600,7 @@
             document.getElementById('artisan-detail-specialty').innerText = spec.name;
             document.getElementById('artisan-call-anchor').href = `tel:${artisan.phone}`;
 
-            const preMsg = `مرحباً يا كابتن ${artisan.fname}! لقد عثرت على حسابك المهني في تطبيق حرايفي HRAIFI وأود التفاهم معك على عمل صيانة.`;
+            const preMsg = `مرحباً يا كابتن ${artisan.fname}! لقد عثرت على حسابك المهني في تطبيق حرايفي HRAIFI وأود التفاهم معك على صيانة.`;
             document.getElementById('artisan-wa-anchor').href = `https://wa.me/213${artisan.phone.substring(1)}?text=${encodeURIComponent(preMsg)}`;
 
             window.showScreen('screen-artisan-details');
@@ -1449,14 +1629,30 @@
             container.innerHTML = '';
 
             if (matchedJobs.length === 0) {
+                window.stopBackgroundRinging(); // Stop any pending ringing if no active jobs exist
                 container.innerHTML = `
                     <div id="artisan-no-orders" class="text-center py-8 text-slate-400">
                         <i class="fas fa-broadcast-tower text-4xl mb-2 text-slate-300"></i>
-                        <p class="text-sm font-bold">لا توجد طلبات صيانة قريبة حالياً.</p>
+                        <p class="text-sm font-bold">لا توجد طلبات جديدة في محيطك حالياً.</p>
                         <p class="text-xs">سيظهر لك طلبات الزبائن وتفاصيل أعمالهم فور إرسالها.</p>
                     </div>
                 `;
                 return;
+            }
+
+            // TRIGGER MESSENGER CALL OVERLAY IF THERE'S A MATCHED REQUEST!
+            const latestJob = matchedJobs[0];
+            const distanceText = window.calculateDistance(artisan.lastLat, artisan.lastLng, latestJob.lat, latestJob.lng).toFixed(1);
+
+            document.getElementById('call-client-name').innerText = `طلب خدمة من: ${latestJob.clientName}`;
+            document.getElementById('call-client-distance').innerText = `على مسافة ${distanceText} كم منك`;
+            document.getElementById('call-client-description').innerText = latestJob.description;
+
+            // Trigger full screen messenger-like overlay with ringing!
+            const overlay = document.getElementById('incoming-call-overlay');
+            if (overlay && overlay.classList.contains('hidden')) {
+                overlay.classList.remove('hidden');
+                window.startBackgroundRinging();
             }
 
             matchedJobs.forEach(job => {
@@ -1489,6 +1685,18 @@
                 `;
                 container.appendChild(card);
             });
+        };
+
+        window.acceptIncomingRinging = () => {
+            window.stopBackgroundRinging();
+            document.getElementById('incoming-call-overlay').classList.add('hidden');
+            window.showToast("تم قبول الطلب بنجاح! يرجى التواصل مع الزبون فوراً.", "success");
+        };
+
+        window.rejectIncomingRinging = () => {
+            window.stopBackgroundRinging();
+            document.getElementById('incoming-call-overlay').classList.add('hidden');
+            window.showToast("تم تجاهل ورفض طلب الصيانة.", "error");
         };
 
         // Admin verification and authentication
@@ -1681,7 +1889,12 @@
                 scrollWheelZoom: isInteractive
             });
 
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            // Set default Street map or Satellite map based on state
+            const streetLayerUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+            const satelliteLayerUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
+            const activeUrl = window.appState.activeMapType === 'street' ? streetLayerUrl : satelliteLayerUrl;
+            L.tileLayer(activeUrl, {
                 maxZoom: 19
             }).addTo(mapInstance);
 
@@ -1694,15 +1907,12 @@
                     if (centerPin) centerPin.classList.remove('moving');
                     const center = mapInstance.getCenter();
                     window.appState.currentPickupCoords = { lat: center.lat, lng: center.lng };
-                    
-                    // Auto-detect Nearest Wilaya based on Coordinates
                     window.detectNearestWilaya(center.lat, center.lng);
                 });
 
                 window.syncArtisansList();
             } else if (mapId === 'artisan-radar-map') {
                 window.appState.artisanRadarMap = mapInstance;
-                // Place current artisan marker
                 L.marker(initialCoords).addTo(mapInstance).bindPopup("موقعك كحرفي معتمد").openPopup();
             } else if (mapId === 'admin-map') {
                 window.appState.adminMap = mapInstance;
@@ -1712,6 +1922,37 @@
                     }
                 });
             }
+        };
+
+        // Type Map controls Zoom + and -
+        window.zoomInMap = () => {
+            if (window.appState.map) {
+                window.appState.map.zoomIn();
+            }
+        };
+
+        window.zoomOutMap = () => {
+            if (window.appState.map) {
+                window.appState.map.zoomOut();
+            }
+        };
+
+        window.toggleMapType = () => {
+            window.appState.activeMapType = window.appState.activeMapType === 'street' ? 'satellite' : 'street';
+            const btnSpan = document.querySelector('#btn-map-type span');
+            if (btnSpan) btnSpan.innerText = window.appState.activeMapType === 'street' ? "قمر صناعي" : "الخريطة العادية";
+            
+            window.initMap('map', true);
+            window.showToast(`تم تحويل عرض الخريطة إلى: ${window.appState.activeMapType === 'street' ? "العادية" : "القمر الصناعي"}`, "success");
+        };
+
+        window.toggleAdminMapType = () => {
+            window.appState.activeMapType = window.appState.activeMapType === 'street' ? 'satellite' : 'street';
+            const btn = document.getElementById('btn-admin-map-type');
+            if (btn) btn.innerText = window.appState.activeMapType === 'street' ? "قمر صناعي" : "الخريطة العادية";
+            
+            window.initMap('admin-map', false);
+            window.showToast("تم تحويل خريطة الإدارة بنجاح", "success");
         };
 
         window.detectNearestWilaya = (lat, lng) => {
@@ -1787,15 +2028,6 @@
                                 borderWidth: 3,
                                 fill: true,
                                 tension: 0.4
-                            },
-                            {
-                                label: 'رسوم التحصيل المودعة',
-                                data: [12000, 18000, 24000, 30000, 42000, 56000],
-                                borderColor: '#00875A',
-                                backgroundColor: 'rgba(0, 135, 90, 0.05)',
-                                borderWidth: 2,
-                                fill: true,
-                                tension: 0.3
                             }
                         ]
                     },
@@ -1847,6 +2079,38 @@
                     }
                 });
                 chartsInstances.push(chart2);
+            }
+
+            // Chart 3: Subscriber Growth Trend over weeks
+            const ctx3 = document.getElementById('subscriberGrowthChart');
+            if (ctx3) {
+                const chart3 = new Chart(ctx3, {
+                    type: 'line',
+                    data: {
+                        labels: ['أسبوع 1', 'أسبوع 2', 'أسبوع 3', 'أسبوع 4', 'أسبوع 5', 'أسبوع 6'],
+                        datasets: [
+                            {
+                                label: 'إجمالي المنخرطين',
+                                data: [15, 34, 56, 88, 120, localUsersList.length || 150],
+                                borderColor: '#10B981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: { font: { family: 'Cairo', size: 10, weight: 'bold' } }
+                            }
+                        }
+                    }
+                });
+                chartsInstances.push(chart3);
             }
         };
 
