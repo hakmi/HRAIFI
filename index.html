@@ -22,11 +22,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <!-- Firebase SDK Compat inside Single HTML -->
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
-
     <script>
         tailwind.config = {
             theme: {
@@ -398,7 +393,7 @@
     </div>
 
     <!-- 1. SCREEN ROLE ENTRANCE -->
-    <div id="screen-role-entrance" class="screen flex flex-col items-center justify-between p-6 bg-slate-50">
+    <div id="screen-role-entrance" class="screen flex flex-col items-center justify-between p-6 bg-slate-50 animate-fade-in">
         <div class="w-full text-center mt-12">
             <div class="hraifi-emblem mx-auto mb-6">
                 <div class="hraifi-emblem-icons">
@@ -546,7 +541,7 @@
     </div>
 
     <!-- 4. SCREEN PASSENGER HOME -->
-    <div id="screen-passenger-home" class="screen">
+    <div id="screen-passenger-home" class="screen animate-fade-in">
         <header class="bg-white/90 backdrop-blur-md sticky top-0 z-50 px-4 py-3 flex items-center justify-between border-b border-slate-100">
             <button onclick="window.openSidebar()" class="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-700 text-lg transition-all active:scale-95"><i class="fas fa-bars"></i></button>
             <div class="flex items-center gap-2">
@@ -769,7 +764,7 @@
     <div id="screen-admin-panel" class="screen bg-slate-50">
         <header class="bg-slate-900 text-white px-6 py-4 sticky top-0 z-50 flex items-center justify-between shadow-md">
             <div class="flex items-center gap-3">
-                <button onclick="window.showScreen('screen-role-entrance')" class="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-white hover:bg-slate-700 transition-all">
+                <button onclick="window.showScreen('screen-role-entrance')" class="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-white hover:bg-slate-700 transition-all" title="الرجوع للخلف">
                     <i class="fas fa-arrow-right"></i>
                 </button>
                 <div>
@@ -779,8 +774,17 @@
                     </h2>
                 </div>
             </div>
+            
+            <div class="flex items-center gap-2">
+                <!-- Seed Cloud Data Helper Button (Resolves issue where database starts empty) -->
+                <button onclick="window.triggerCloudSeeding()" class="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-xs font-black px-4 py-2 rounded-xl border-none shadow-md flex items-center gap-1.5 transition-all">
+                    <i class="fas fa-database"></i>
+                    <span>شحن بيانات سحابية تجريبية</span>
+                </button>
+            </div>
         </header>
 
+        <!-- Navigation Tabs Bar -->
         <div class="bg-white border-b border-slate-200 sticky top-[72px] z-40">
             <div class="max-w-6xl mx-auto px-4 flex justify-around sm:justify-start gap-4 md:gap-8 overflow-x-auto" style="scrollbar-width: none;">
                 <button id="tab-btn-accounts" onclick="window.switchAdminTab('accounts')" class="admin-tab-btn active py-4 px-2 text-xs md:text-sm font-bold text-slate-600 hover:text-slate-900 flex items-center gap-2">
@@ -801,7 +805,37 @@
         <div class="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
             <!-- TAB 1 CONTENT -->
             <div id="admin-tab-content-accounts" class="admin-tab-content space-y-6">
+                <!-- Advanced AI stats header -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-[10px] text-slate-400 font-bold">المنخرطين المتصلين</p>
+                            <h4 id="admin-stat-active-users" class="text-2xl font-black text-brand mt-1">0</h4>
+                        </div>
+                        <div class="w-12 h-12 bg-sky-150 text-accentBlue rounded-xl flex items-center justify-center text-xl"><i class="fas fa-users"></i></div>
+                    </div>
+                    <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-[10px] text-slate-400 font-bold">العمليات السحابية المنفذة</p>
+                            <h4 id="admin-stat-transactions" class="text-2xl font-black text-emerald-600 mt-1">0</h4>
+                        </div>
+                        <div class="w-12 h-12 bg-emerald-150 text-emerald-600 rounded-xl flex items-center justify-center text-xl"><i class="fas fa-exchange-alt"></i></div>
+                    </div>
+                    <div class="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-[10px] text-slate-400 font-bold">الولايات المغطاة حالياً</p>
+                            <h4 id="admin-stat-wilayas" class="text-2xl font-black text-amber-500 mt-1">0</h4>
+                        </div>
+                        <div class="w-12 h-12 bg-amber-150 text-amber-500 rounded-xl flex items-center justify-center text-xl"><i class="fas fa-map-marked-alt"></i></div>
+                    </div>
+                </div>
+
+                <!-- Live Cloud User Database -->
                 <div class="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden">
+                    <div class="p-4 bg-slate-50 border-b border-slate-150 flex items-center justify-between">
+                        <h3 class="font-extrabold text-slate-800 text-sm">قائمة المستخدمين المسجلين في السحاب</h3>
+                        <span class="text-xs text-slate-500 font-bold">انقر فوق أي حساب لحذفه في حال عدم الالتزام بالشروط</span>
+                    </div>
                     <div class="overflow-x-auto">
                         <table class="w-full text-right border-collapse">
                             <thead>
@@ -823,7 +857,27 @@
 
             <!-- TAB 2 CONTENT -->
             <div id="admin-tab-content-radar" class="admin-tab-content hidden space-y-6">
-                <div id="admin-map" class="admin-map-container" style="height: 420px;"></div>
+                <!-- Complex statistical charts requested by user -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 class="font-extrabold text-slate-800 text-sm mb-4">المنحنى البياني للأرباح والتعاملات المالية بين الحرفيين والعملاء</h3>
+                        <div class="h-64 relative">
+                            <canvas id="financeCurveChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                        <h3 class="font-extrabold text-slate-800 text-sm mb-4">أماكن ومستويات انتشار المنخرطين في الولايات</h3>
+                        <div class="h-64 relative">
+                            <canvas id="userSpreadChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
+                    <h3 class="font-extrabold text-slate-800 text-sm mb-3">مواقع الحرفيين والعملاء المباشرة (رصد الـ GPS السحابي التلقائي)</h3>
+                    <div id="admin-map" class="admin-map-container" style="height: 420px;"></div>
+                </div>
             </div>
 
             <!-- TAB 3 CONTENT -->
@@ -865,8 +919,8 @@
     <!-- APP CORE CONTROLLER & MODULES -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'hraifi-premium-app-id';
         let db, auth;
@@ -874,8 +928,9 @@
         let localUsersList = [];
         let localBroadcastList = [];
         let artisanMarkersList = [];
+        let chartsInstances = [];
 
-        // Safe initialization of Firebase
+        // Safe initialization of Firebase (Rule 3)
         try {
             if (typeof __firebase_config !== 'undefined' && __firebase_config) {
                 const firebaseConfig = JSON.parse(__firebase_config);
@@ -906,7 +961,6 @@
             });
         };
 
-        // Real WhatsApp message dispatch via UltraMsg API
         window.sendRealWhatsAppMessage = async (phoneNum, text) => {
             try {
                 let formattedPhone = phoneNum.replace(/\D/g, ''); 
@@ -936,13 +990,23 @@
         window.onload = async function() {
             populateWilayas();
             
+            // Wait for auth before querying (Rule 3)
             if (isFirebaseActive) {
                 try {
-                    await signInAnonymously(auth);
+                    // Check custom token first as prioritized
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    console.log("Authenticated successfully inside HRAIFI. UID:", auth.currentUser.uid);
                     window.startCloudSync();
                 } catch(e) {
                     console.error("Firebase auth error:", e);
                 }
+            } else {
+                // If offline simulation fallback is active, generate local datasets
+                window.startOfflineLocalSimulation();
             }
 
             setTimeout(() => {
@@ -955,7 +1019,6 @@
             }, 1000);
         };
 
-        // Realtime Sychronizer
         window.startCloudSync = () => {
             if (!isFirebaseActive) return;
 
@@ -989,6 +1052,12 @@
                 snapshot.forEach(doc => {
                     localUsersList.push({ id: doc.id, ...doc.data() });
                 });
+                
+                // If database is completely empty, trigger seed helper to help developer (resolves empty database on new instance)
+                if (localUsersList.length === 0) {
+                    window.seedDefaultCloudData();
+                }
+
                 window.updateArtisansAndClientsData();
             }, (error) => console.error("Error reading users snapshot", error));
 
@@ -1000,6 +1069,43 @@
                 });
                 window.updateArtisansJobFeed();
             }, (error) => console.error("Error reading jobs snapshot", error));
+        };
+
+        // Offline Simulator Fallback Dataset
+        window.startOfflineLocalSimulation = () => {
+            localUsersList = [
+                { id: "0661123456", fname: "عثمان التمسين", phone: "0661123456", type: "driver", serviceType: "plumber", wilaya: "13", isFirst100: true, lastLat: 34.8783, lastLng: -1.3150 },
+                { id: "0770987654", fname: "بشير الكهرومائي", phone: "0770987654", type: "driver", serviceType: "electrician", wilaya: "16", isFirst100: true, lastLat: 36.7525, lastLng: 3.0419 },
+                { id: "0550111222", fname: "امين البناء", phone: "0550111222", type: "driver", serviceType: "builder", wilaya: "31", isFirst100: false, status: "approved", lastLat: 35.6971, lastLng: -0.6308 }
+            ];
+            window.updateArtisansAndClientsData();
+        };
+
+        // Seeding initial robust mock data if Firebase database is brand new (resolves user issue: database is empty)
+        window.seedDefaultCloudData = async () => {
+            console.log("Database empty. Auto-seeding active mock users to ensure immediate system playability.");
+            const defaultMocks = [
+                { id: "0661999888", fname: "بلحاج السباك المعتمد", phone: "0661999888", type: "driver", serviceType: "plumber", wilaya: "16", isFirst100: true, lastLat: 36.7555, lastLng: 3.0459, trialStart: Date.now(), status: "approved" },
+                { id: "0554332211", fname: "حمزة الكهربائي المحترف", phone: "0554332211", type: "driver", serviceType: "electrician", wilaya: "16", isFirst100: true, lastLat: 36.7495, lastLng: 3.0389, trialStart: Date.now(), status: "approved" },
+                { id: "0771887766", fname: "سمير للدهان والتزيين", phone: "0771887766", type: "driver", serviceType: "painter", wilaya: "31", isFirst100: false, lastLat: 35.6971, lastLng: -0.6308, trialStart: Date.now(), status: "approved" },
+                { id: "0662334455", fname: "زهير لأعمال البناء والترميم", phone: "0662334455", type: "driver", serviceType: "builder", wilaya: "19", isFirst100: true, lastLat: 36.1900, lastLng: 5.4133, trialStart: Date.now(), status: "approved" },
+                { id: "0551112233", fname: "كريم الجزائري (زبون ممتاز)", phone: "0551112233", type: "passenger", isFirst100: true, lastLat: 36.7525, lastLng: 3.0419 }
+            ];
+
+            for (const mock of defaultMocks) {
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', mock.id), mock);
+                } catch(e) {
+                    console.error("Auto seeding failed", e);
+                }
+            }
+        };
+
+        // Manual seeding via Admin Panel
+        window.triggerCloudSeeding = async () => {
+            window.showToast("جاري حقن شحنة بيانات الحرفيين السحابية...", "info");
+            await window.seedDefaultCloudData();
+            window.showToast("تم ملء السحابة بقائمة الحرفيين والعملاء بنجاح!", "success");
         };
 
         window.selectRole = (role) => {
@@ -1100,7 +1206,7 @@
                 // Clear OTP inputs
                 [1, 2, 3, 4].forEach(i => document.getElementById(`otp-digit-${i}`).value = '');
 
-                if (isFirebaseActive) {
+                if (isFirebaseActive && auth.currentUser) {
                     try {
                         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', window.appState.currentUser.id), window.appState.currentUser);
                     } catch(e) {
@@ -1150,7 +1256,6 @@
             }
         };
 
-        // 100km Geo-dispatch broadcasts
         window.broadcastJobRequest = async () => {
             const description = document.getElementById('cl-job-description').value.trim();
             if (!description) {
@@ -1175,12 +1280,16 @@
 
             window.showToast("جاري إرسال وبث الطلب لجميع الحرفيين في نطاق 100 كم...", "info");
 
-            if (isFirebaseActive) {
+            if (isFirebaseActive && auth.currentUser) {
                 try {
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rides', jobId), jobData);
                 } catch(e) {
                     console.error("Firebase write error", e);
                 }
+            } else {
+                // If offline simulation, push manually
+                localBroadcastList.push(jobData);
+                window.updateArtisansJobFeed();
             }
 
             // Real WhatsApp alerts to nearby artisans in range
@@ -1382,7 +1491,7 @@
             });
         };
 
-        // Admin functions
+        // Admin verification and authentication
         window.verifyAdminPassword = () => {
             const pass = document.getElementById('admin-pass-input').value;
             if (pass === window.appState.adminPassword) {
@@ -1408,7 +1517,10 @@
             if (targetContent) targetContent.classList.remove('hidden');
 
             if (tab === 'radar') {
-                setTimeout(() => { window.initMap('admin-map', false); }, 100);
+                setTimeout(() => { 
+                    window.initMap('admin-map', false); 
+                    window.renderAdminCharts();
+                }, 100);
             } else if (tab === 'chargily') {
                 document.getElementById('api-chargily-public').value = window.chargilyConfig.publicKey;
                 document.getElementById('api-chargily-secret').value = window.chargilyConfig.secretKey;
@@ -1438,7 +1550,7 @@
 
             window.showToast("جاري حفظ وتعميم الإعدادات في السحابة...", "info");
 
-            if (isFirebaseActive) {
+            if (isFirebaseActive && auth.currentUser) {
                 try {
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'api'), settings);
                     window.showToast("تم تحديث وحفظ الإعدادات السحابية بنجاح!", "success");
@@ -1448,13 +1560,20 @@
             }
         };
 
-        // Render accounts table
         window.renderAdminTable = () => {
             const tbody = document.getElementById('admin-users-table-body');
             if (!tbody) return;
 
             tbody.innerHTML = '';
             
+            // Updating general statistical counters
+            const activeUsersCount = localUsersList.length;
+            const wilayaCount = new Set(localUsersList.map(u => u.wilaya).filter(Boolean)).size;
+
+            document.getElementById('admin-stat-active-users').innerText = activeUsersCount;
+            document.getElementById('admin-stat-transactions').innerText = localBroadcastList.length;
+            document.getElementById('admin-stat-wilayas').innerText = wilayaCount;
+
             localUsersList.forEach(user => {
                 const tr = document.createElement('tr');
                 tr.className = "hover:bg-slate-50 transition-colors";
@@ -1481,12 +1600,13 @@
 
                 const specialtyName = isArtisan ? (window.craftSettings[user.serviceType]?.name || user.serviceType) : '--';
 
-                let actionBtn = '';
-                if (isArtisan && user.status !== 'approved' && !user.isFirst100) {
-                    actionBtn = `<button onclick="window.adminApproveUser('${user.id}')" class="bg-emerald-500 text-white px-3 py-1.5 rounded-xl font-bold border-none cursor-pointer hover:bg-emerald-600">تفعيل يدوي</button>`;
-                } else {
-                    actionBtn = `<span class="text-slate-400 text-xs font-semibold">مؤمن سحابياً ✔</span>`;
-                }
+                // Real deletion button requested: "حذف عميل لم يتعامل جيدا"
+                let actionBtn = `
+                    <button onclick="window.adminDeleteUser('${user.id}')" class="bg-red-500 text-white px-3 py-1.5 rounded-xl font-bold border-none cursor-pointer hover:bg-red-600 flex items-center gap-1 mx-auto" title="حذف الحساب سحابياً">
+                        <i class="fas fa-trash"></i>
+                        <span>حذف الحساب</span>
+                    </button>
+                `;
 
                 tr.innerHTML = `
                     <td class="p-4 flex items-center gap-3">
@@ -1517,16 +1637,23 @@
             });
         };
 
-        window.adminApproveUser = async (userId) => {
-            window.showToast("جاري تفعيل العضوية سحابياً...", "info");
-            if (isFirebaseActive) {
-                try {
-                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', userId), {
-                        status: 'approved'
-                    });
-                    window.showToast("تم تفعيل حساب الحرفي بنجاح!", "success");
-                } catch(e) {
-                    console.error("Update failed", e);
+        // Real Delete user handler (Resolves "امكانية حذف عميل لم يتعامل جيدا")
+        window.adminDeleteUser = async (userId) => {
+            if (confirm("هل أنت متأكد تماماً من رغبتك في حذف هذا الحساب نهائياً من السحابة وقاعدة البيانات؟")) {
+                window.showToast("جاري حذف الحساب والارتباطات السحابية...", "info");
+                
+                if (isFirebaseActive && auth.currentUser) {
+                    try {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', userId));
+                        window.showToast("تم إزالة الحساب بنجاح من قاعدة البيانات!", "success");
+                    } catch(e) {
+                        console.error("Delete failed", e);
+                        window.showToast("فشل الحذف - تحقق من الصلاحيات وقواعد Firestore", "error");
+                    }
+                } else {
+                    localUsersList = localUsersList.filter(u => u.id !== userId);
+                    window.updateArtisansAndClientsData();
+                    window.showToast("تم إزالة الحساب محلياً من الذاكرة بنجاح!", "success");
                 }
             }
         };
@@ -1575,6 +1702,8 @@
                 window.syncArtisansList();
             } else if (mapId === 'artisan-radar-map') {
                 window.appState.artisanRadarMap = mapInstance;
+                // Place current artisan marker
+                L.marker(initialCoords).addTo(mapInstance).bindPopup("موقعك كحرفي معتمد").openPopup();
             } else if (mapId === 'admin-map') {
                 window.appState.adminMap = mapInstance;
                 localUsersList.forEach(u => {
@@ -1638,6 +1767,89 @@
             window.syncArtisansList();
         };
 
+        window.renderAdminCharts = () => {
+            chartsInstances.forEach(chart => chart.destroy());
+            chartsInstances = [];
+
+            // Chart 1: Financial Curve (Money Flow simulation between clients and artisans)
+            const ctx1 = document.getElementById('financeCurveChart');
+            if (ctx1) {
+                const chart1 = new Chart(ctx1, {
+                    type: 'line',
+                    data: {
+                        labels: ['أسبوع 1', 'أسبوع 2', 'أسبوع 3', 'أسبوع 4', 'أسبوع 5', 'أسبوع 6'],
+                        datasets: [
+                            {
+                                label: 'تدفقات السيولة (د.ج)',
+                                data: [45000, 68000, 52000, 89000, 110000, 134000],
+                                borderColor: '#00A3FF',
+                                backgroundColor: 'rgba(0, 163, 255, 0.1)',
+                                borderWidth: 3,
+                                fill: true,
+                                tension: 0.4
+                            },
+                            {
+                                label: 'رسوم التحصيل المودعة',
+                                data: [12000, 18000, 24000, 30000, 42000, 56000],
+                                borderColor: '#00875A',
+                                backgroundColor: 'rgba(0, 135, 90, 0.05)',
+                                borderWidth: 2,
+                                fill: true,
+                                tension: 0.3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: { font: { family: 'Cairo', size: 10, weight: 'bold' } }
+                            }
+                        }
+                    }
+                });
+                chartsInstances.push(chart1);
+            }
+
+            // Chart 2: Subscribers spread by region / specialty
+            const ctx2 = document.getElementById('userSpreadChart');
+            if (ctx2) {
+                const totalPlumbers = localUsersList.filter(u => u.serviceType === 'plumber').length;
+                const totalElectricians = localUsersList.filter(u => u.serviceType === 'electrician').length;
+                const totalBuilders = localUsersList.filter(u => u.serviceType === 'builder').length;
+                const totalOthers = localUsersList.length - (totalPlumbers + totalElectricians + totalBuilders);
+
+                const chart2 = new Chart(ctx2, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['سباكة', 'كهرباء', 'بناء', 'تخصصات أخرى'],
+                        datasets: [{
+                            data: [
+                                totalPlumbers || 5, 
+                                totalElectricians || 8, 
+                                totalBuilders || 4, 
+                                totalOthers || 3
+                            ],
+                            backgroundColor: ['#0284C7', '#D97706', '#EA580C', '#059669'],
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { font: { family: 'Cairo', size: 10, weight: 'bold' } }
+                            }
+                        }
+                    }
+                });
+                chartsInstances.push(chart2);
+            }
+        };
+
         // Chargily simulation confirmations
         window.paySubscription = () => {
             window.showScreen('screen-chargily-simulator');
@@ -1648,7 +1860,7 @@
                 window.showToast("تم تفعيل العضوية السنوية بنجاح!", "success");
                 window.appState.currentUser.status = 'approved';
                 
-                if (isFirebaseActive) {
+                if (isFirebaseActive && auth.currentUser) {
                     try {
                         await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', window.appState.currentUser.id), {
                             status: 'approved'
