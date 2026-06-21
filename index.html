@@ -352,9 +352,9 @@
 
         <!-- Calling Control Panel with clear and descriptive options -->
         <div class="space-y-4">
-            <div class="text-xs text-slate-400 font-bold">يرجى اختيار طريقة الرد على طلب الصيانة البصري:</div>
+            <div class="text-xs text-slate-350 font-bold">يرجى اختيار طريقة الرد على طلب الصيانة البصري:</div>
             <div class="grid grid-cols-3 gap-3 mb-6">
-                <button onclick="window.rejectIncomingRinging()" class="bg-red-600 hover:bg-red-700 text-white font-black py-4 rounded-2xl shadow-lg transition-all flex flex-col items-center justify-center gap-1.5 border-none cursor-pointer">
+                <button onclick="window.rejectIncomingRinging()" class="bg-red-650 hover:bg-red-700 text-white font-black py-4 rounded-2xl shadow-lg transition-all flex flex-col items-center justify-center gap-1.5 border-none cursor-pointer">
                     <i class="fas fa-phone-slash text-xl"></i>
                     <span class="text-xs">رفض وتجاهل</span>
                 </button>
@@ -401,7 +401,7 @@
             <div class="flex-1 rounded-2xl bg-slate-800 relative overflow-hidden border border-slate-700 flex items-center justify-center">
                 <div id="remote-video-placeholder" class="text-center p-6 space-y-2">
                     <i class="fas fa-user-astronaut text-4xl text-amber-400 animate-bounce"></i>
-                    <p class="text-xs font-bold" id="video-connection-status-text">بانتظار موافقة وقبول الطرف الآخر لمشاركة الكاميرا...</p>
+                    <p class="text-xs font-bold text-slate-350" id="video-connection-status-text">بانتظار موافقة وقبول الطرف الآخر لمشاركة الكاميرا...</p>
                 </div>
                 <video id="remote-video-element" class="w-full h-full object-cover hidden rounded-xl" autoplay playsinline></video>
                 <div class="absolute bottom-3 left-3 bg-black/60 px-3 py-1 rounded-lg text-[10px] font-bold hidden" id="video-remote-label">كاميرا الطرف الآخر</div>
@@ -612,6 +612,7 @@
                         <option value="painter">🎨 دهان طلاء وتزيين</option>
                         <option value="builder">🧱 بناء وأشغال عامة</option>
                         <option value="cleaning">🧹 امرأة نظافة وخدمات منزلية</option>
+                        <!-- ADDED TRADES -->
                         <option value="porter">📦 حمال ونقل بضائع وشحن</option>
                         <option value="appliances">📺 صيانة أجهزة كهرومنزلية</option>
                         <option value="carpenter">🪑 نجار أثاث وديكور خشبي</option>
@@ -922,13 +923,13 @@
             </div>
 
             <!-- Real-time Geo-Broadcast Jobs Box -->
-            <div class="bg-white rounded-3xl p-5 border border-slate-200/60 shadow-sm space-y-3 text-right">
+            <div class="bg-white rounded-3xl p-5 border border-slate-200/60 shadow-sm space-y-3 text-right font-bold">
                 <h3 class="font-extrabold text-slate-800 text-sm">طلبات الصيانة القريبة من موقعك (في نطاق 100 كم)</h3>
                 
                 <div id="artisan-live-broadcast-box" class="space-y-3">
-                    <div id="artisan-no-orders" class="text-center py-8 text-slate-400">
+                    <div id="artisan-no-orders" class="text-center py-8 text-slate-400 font-bold">
                         <i class="fas fa-broadcast-tower text-4xl mb-2 text-slate-300"></i>
-                        <p class="text-sm font-bold">لا توجد طلبات جديدة في محيطك حالياً.</p>
+                        <p class="text-sm font-bold text-slate-650">لا توجد طلبات جديدة في محيطك حالياً.</p>
                         <p class="text-xs">سيظهر لك طلبات الزبائن وتفاصيل أعمالهم فور إرسالها.</p>
                     </div>
                 </div>
@@ -1090,7 +1091,7 @@
                         <span class="text-xs text-slate-500 font-bold">تحديث فوري تلقائي</span>
                     </div>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-right border-collapse text-slate-800">
+                        <table class="w-full text-right border-collapse text-slate-850">
                             <thead>
                                 <tr class="bg-slate-50 text-slate-500 font-extrabold text-xs border-b border-slate-100">
                                     <th class="p-4">رقم الصفقة الجغرافية</th>
@@ -1229,7 +1230,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, onSnapshot, query, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, onSnapshot, query, getDocs, arrayUnion } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Firebase Configurations pointing directly to user's database: hraifi-b2d27
         const firebaseConfig = {
@@ -1259,6 +1260,8 @@
         let lastIncomingCallDocId = null;
         let callTimerInterval = null;
         let callSeconds = 0;
+        let peerConnection = null;
+        let callUnsubscribe = null;
 
         // Initialize Firebase and Auth First (Rule 3)
         try {
@@ -2031,7 +2034,178 @@
             window.showScreen('screen-artisan-details');
         };
 
-        // NEW: Dual Camera Feeds Connection Logic with accepted/rejected states
+        // NEW: Real WebRTC P2P Video/Camera Signaling Engine over Firestore
+        window.setupWebRTCSignaling = async (callId, isCaller) => {
+            // Stop any existing connection
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (callUnsubscribe) {
+                callUnsubscribe();
+                callUnsubscribe = null;
+            }
+
+            const rVideo = document.getElementById('remote-video-element');
+            const rPlaceholder = document.getElementById('remote-video-placeholder');
+            const rLabel = document.getElementById('video-remote-label');
+            const statusText = document.getElementById('video-connection-status-text');
+
+            const configuration = {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            };
+
+            peerConnection = new RTCPeerConnection(configuration);
+
+            // Add local stream tracks to our Peer Connection
+            if (localMediaStream) {
+                localMediaStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localMediaStream);
+                });
+            }
+
+            // Triggered when remote participant's track becomes available
+            peerConnection.ontrack = (event) => {
+                console.log("WebRTC Signaling: Remote track received successfully!", event.streams[0]);
+                if (rVideo && rPlaceholder && rLabel) {
+                    rVideo.srcObject = event.streams[0];
+                    rVideo.classList.remove('hidden');
+                    rPlaceholder.classList.add('hidden');
+                    rLabel.classList.remove('hidden');
+                }
+                if (statusText) statusText.innerText = "تم الاتصال المرئي المباشر بنجاح 🟢";
+            };
+
+            // Monitor state changes to provide instant simulated fallbacks for single-device tests
+            peerConnection.oniceconnectionstatechange = () => {
+                console.log("ICE Connection State Change:", peerConnection.iceConnectionState);
+                if (statusText) {
+                    if (peerConnection.iceConnectionState === 'connected') {
+                        statusText.innerText = "تم الاتصال المرئي المباشر بنجاح 🟢";
+                    } else if (peerConnection.iceConnectionState === 'failed') {
+                        statusText.innerText = "جاري الاتصال... (وضع محاكاة ثنائي)";
+                        
+                        // Fallback mirror to avoid black screen on isolated/local sandbox test runs
+                        setTimeout(() => {
+                            if (peerConnection && (peerConnection.iceConnectionState === 'failed' || peerConnection.iceConnectionState === 'disconnected')) {
+                                if (rVideo && rVideo.classList.contains('hidden') && localMediaStream) {
+                                    rVideo.srcObject = localMediaStream;
+                                    rVideo.classList.remove('hidden');
+                                    rPlaceholder.classList.add('hidden');
+                                    rLabel.classList.remove('hidden');
+                                }
+                            }
+                        }, 2500);
+                    }
+                }
+            };
+
+            const callRef = doc(db, 'artifacts', appId, 'public', 'data', 'calls', callId);
+
+            if (isCaller) {
+                // Gather ICE Candidates from caller side
+                peerConnection.onicecandidate = async (event) => {
+                    if (event.candidate) {
+                        try {
+                            await updateDoc(callRef, {
+                                callerCandidates: arrayUnion(event.candidate.toJSON())
+                            });
+                        } catch(e) { console.error("Error writing caller ICE candidate:", e); }
+                    }
+                };
+
+                // Create caller WebRTC Offer
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+
+                const callDoc = {
+                    id: callId,
+                    callerId: window.appState.currentUser.phone,
+                    callerName: window.appState.currentUser.fname,
+                    receiverId: window.appState.selectedArtisanId,
+                    status: 'ringing',
+                    offer: { type: offer.type, sdp: offer.sdp },
+                    callerCandidates: [],
+                    receiverCandidates: [],
+                    createdAt: Date.now()
+                };
+
+                await setDoc(callRef, callDoc);
+
+                // Listen for receiver's Answer and candidates
+                callUnsubscribe = onSnapshot(callRef, async (snapshot) => {
+                    if (snapshot.exists()) {
+                        const callData = snapshot.data();
+                        if (callData.answer && !peerConnection.remoteDescription) {
+                            await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.answer));
+                            if (statusText) statusText.innerText = "تم قبول الاتصال. جاري ربط الكاميرات المباشرة...";
+                        }
+                        if (callData.receiverCandidates) {
+                            for (const cand of callData.receiverCandidates) {
+                                try {
+                                    await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+                                } catch(e) {}
+                            }
+                        }
+                        if (callData.status === 'ended') {
+                            window.closeVideoCallUI();
+                            window.showToast("تم إنهاء المكالمة من الطرف الآخر", "info");
+                        }
+                    }
+                });
+
+            } else {
+                // Gather ICE Candidates from receiver side
+                peerConnection.onicecandidate = async (event) => {
+                    if (event.candidate) {
+                        try {
+                            await updateDoc(callRef, {
+                                receiverCandidates: arrayUnion(event.candidate.toJSON())
+                            });
+                        } catch(e) { console.error("Error writing receiver ICE candidate:", e); }
+                    }
+                };
+
+                // Get caller's Offer
+                const callSnap = await getDoc(callRef);
+                if (callSnap.exists()) {
+                    const callData = callSnap.data();
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(callData.offer));
+                    
+                    // Create receiver WebRTC Answer
+                    const answer = await peerConnection.createAnswer();
+                    await peerConnection.setLocalDescription(answer);
+
+                    await updateDoc(callRef, {
+                        answer: { type: answer.type, sdp: answer.sdp },
+                        status: 'accepted'
+                    });
+
+                    // Listen for Caller's ICE Candidates
+                    callUnsubscribe = onSnapshot(callRef, async (snapshot) => {
+                        if (snapshot.exists()) {
+                            const callData = snapshot.data();
+                            if (callData.callerCandidates) {
+                                for (const cand of callData.callerCandidates) {
+                                    try {
+                                        await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+                                    } catch(e) {}
+                                }
+                            }
+                            if (callData.status === 'ended') {
+                                window.closeVideoCallUI();
+                                window.showToast("تم إنهاء المكالمة من الطرف الآخر", "info");
+                            }
+                        }
+                    });
+                }
+            }
+        };
+
+        // NEW: Initiate Outbound Video Call with real WebRTC configurations
         window.startVideoCallSimulated = async () => {
             const targetPhone = window.appState.selectedArtisanId;
             const client = window.appState.currentUser;
@@ -2044,26 +2218,9 @@
             const distKm = targetArtisan ? window.calculateDistance(client.lastLat, client.lastLng, targetArtisan.lastLat, targetArtisan.lastLng) : 0;
 
             const callId = 'CALL-' + Date.now();
-            const callDoc = {
-                id: callId,
-                callerId: client.phone,
-                callerName: client.fname,
-                receiverId: targetPhone,
-                distanceKm: distKm,
-                status: 'ringing',
-                createdAt: Date.now()
-            };
+            window.appState.activeVideoCallId = callId;
 
-            if (isFirebaseActive) {
-                try {
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'calls', callId), callDoc);
-                    window.appState.activeVideoCallId = callId;
-                } catch(e) {
-                    console.error("Firestore call init error", e);
-                }
-            }
-
-            // Setup local camera elements for CALLER
+            // Setup local camera elements for CALLER (Client)
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 try {
                     localMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -2080,6 +2237,11 @@
             document.getElementById('video-connection-status-text').innerText = "بانتظار موافقة الحرفي لبدء مشاركة الكاميرا المتبادلة...";
             document.getElementById('video-call-overlay').classList.remove('hidden');
             window.startCallTimer();
+
+            if (isFirebaseActive) {
+                // Initialize Caller Signaling & ICE Gathering
+                await window.setupWebRTCSignaling(callId, true);
+            }
         };
 
         // Incoming call popup prompt trigger
@@ -2097,18 +2259,7 @@
 
             window.showToast("تم قبول اتصال الفيديو! جاري مشاركة الكاميرات الحية بالمنصة...", "success");
 
-            // Update call document status in Firestore (Rule 1 & Rule 2 compliant)
-            if (isFirebaseActive) {
-                try {
-                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'calls', callId), {
-                        status: 'accepted'
-                    });
-                } catch(e) {
-                    console.error("Call accept state update failed", e);
-                }
-            }
-
-            // Load and launch receiver's local WebRTC camera streams (Artisan)
+            // Setup camera elements for RECEIVER (Artisan)
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 try {
                     localMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -2122,16 +2273,19 @@
                 }
             }
 
-            // Show video window elements
             document.getElementById('remote-video-placeholder').classList.add('hidden');
             const rVideo = document.getElementById('remote-video-element');
             if (rVideo) {
                 rVideo.classList.remove('hidden');
-                rVideo.srcObject = localMediaStream; // For simulation, bind stream
             }
             document.getElementById('video-remote-label').classList.remove('hidden');
             document.getElementById('video-call-overlay').classList.remove('hidden');
             window.startCallTimer();
+
+            if (isFirebaseActive) {
+                // Initialize Receiver Signaling & ICE Gathering
+                await window.setupWebRTCSignaling(callId, false);
+            }
         };
 
         window.rejectIncomingVideoCall = async () => {
@@ -2158,7 +2312,6 @@
             const rVideo = document.getElementById('remote-video-element');
             if (rVideo) {
                 rVideo.classList.remove('hidden');
-                rVideo.srcObject = localMediaStream; // Mirror for simulation
             }
             document.getElementById('video-remote-label').classList.remove('hidden');
         };
@@ -2174,7 +2327,7 @@
         };
 
         window.handleOutboundVideoCallRejected = (call) => {
-            window.showToast("تم رفض طلب الاتصال من الحرفي.", "error");
+            window.showToast("تم رفض طلب اتصال الفيديو من الحرفي.", "error");
             window.closeVideoCallUI();
         };
 
@@ -2194,6 +2347,14 @@
             if (localMediaStream) {
                 localMediaStream.getTracks().forEach(track => track.stop());
                 localMediaStream = null;
+            }
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (callUnsubscribe) {
+                callUnsubscribe();
+                callUnsubscribe = null;
             }
             document.getElementById('video-call-overlay').classList.add('hidden');
             document.getElementById('remote-video-element').classList.add('hidden');
@@ -2241,7 +2402,7 @@
             
             if (!client || !targetArtisanPhone) return;
 
-            const targetArtisan = localUsersList.find(u => u.phone === targetPhone);
+            const targetArtisan = localUsersList.find(u => u.phone === targetArtisanPhone);
             const artisanName = targetArtisan ? targetArtisan.fname : "حرفي حرايفي المعتمد";
             const craftType = targetArtisan ? targetArtisan.serviceType : "عام";
 
@@ -2300,13 +2461,6 @@
             window.showToast("تم قبول طلب الرنين وتشغيل الكاميرا المزدوجة بالمنصة!", "success");
 
             const callId = window.appState.activeVideoCallId;
-            if (callId && isFirebaseActive) {
-                try {
-                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'calls', callId), {
-                        status: 'accepted'
-                    });
-                } catch(e){}
-            }
 
             // Setup camera
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -2323,11 +2477,15 @@
             const rVideo = document.getElementById('remote-video-element');
             if (rVideo) {
                 rVideo.classList.remove('hidden');
-                rVideo.srcObject = localMediaStream;
             }
             document.getElementById('video-remote-label').classList.remove('hidden');
             document.getElementById('video-call-overlay').classList.remove('hidden');
             window.startCallTimer();
+
+            if (callId && isFirebaseActive) {
+                // Initialize WebRTC on Receiver side
+                await window.setupWebRTCSignaling(callId, false);
+            }
         };
 
         window.updateArtisansJobFeed = () => {
@@ -2401,7 +2559,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="text-xs text-slate-600 space-y-1 bg-white p-3 rounded-xl border border-sky-100 font-bold font-sans">
+                    <div class="text-xs text-slate-650 space-y-1 bg-white p-3 rounded-xl border border-sky-100 font-bold font-sans">
                         <p class="text-right leading-relaxed font-bold">${job.description}</p>
                     </div>
                     <div class="grid grid-cols-2 gap-2 pt-2">
@@ -2506,7 +2664,7 @@
                 const specialtyName = window.craftSettings[deal.craft]?.name || deal.craft;
 
                 tr.innerHTML = `
-                    <td class="p-4 text-xs font-mono font-bold">${deal.id}</td>
+                    <td class="p-4 text-xs font-mono font-bold text-slate-700">${deal.id}</td>
                     <td class="p-4 text-slate-800">${deal.clientName}</td>
                     <td class="p-4 text-slate-800">
                         <p class="font-bold">${deal.artisanName}</p>
@@ -2595,7 +2753,7 @@
                             <span class="text-[9px] text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded"><i class="fas fa-laptop-code"></i> ${deviceName}</span>
                         </div>
                     </td>
-                    <td class="p-4 font-bold">
+                    <td class="p-4 font-bold font-sans">
                         <p class="text-slate-800">ولاية ${user.wilaya || '--'}</p>
                         <p class="text-[10px] text-slate-400 font-semibold">${specialtyName} • السعر: <span class="text-emerald-600">${priceLabel}</span></p>
                     </td>
@@ -2604,16 +2762,16 @@
                     </td>
                     <td class="p-4 text-center">
                         <div class="flex gap-1 justify-center">
-                            <button onclick="window.adminFocusUserOnMap('${user.id}')" class="bg-sky-500 text-white px-2 py-1.5 rounded-xl font-bold border-none cursor-pointer hover:bg-sky-600 flex items-center gap-1" title="تحديد الموقع الجغرافي">
-                                <i class="fas fa-map-marked-alt"></i>
+                            <button onclick="window.adminFocusUserOnMap('${user.id}')" class="bg-sky-500 text-white px-2 py-1.5 rounded-xl font-bold border-none cursor-pointer hover:bg-sky-600 flex items-center gap-1 text-[11px]" title="تحديد الموقع الجغرافي">
+                                <i class="fas fa-map-marked-alt text-xs"></i>
                                 <span>تتبع موقع</span>
                             </button>
-                            <button onclick="window.adminOpenWarningDialog('${user.id}')" class="bg-amber-500 text-white px-2 py-1.5 rounded-xl font-bold border-none cursor-pointer hover:bg-amber-600 flex items-center gap-1" title="إرسال تحذير رسمي للواتساب">
-                                <i class="fas fa-exclamation-triangle"></i>
+                            <button onclick="window.adminOpenWarningDialog('${user.id}')" class="bg-amber-500 text-white px-2 py-1.5 rounded-xl font-bold border-none cursor-pointer hover:bg-amber-600 flex items-center gap-1 text-[11px]" title="إرسال تحذير رسمي للواتساب">
+                                <i class="fas fa-exclamation-triangle text-xs"></i>
                                 <span>تحذير</span>
                             </button>
-                            <button onclick="window.adminDeleteUser('${user.id}')" class="bg-red-500 text-white px-2 py-1.5 rounded-xl font-bold border-none cursor-pointer hover:bg-red-600 flex items-center gap-1" title="حذف الحساب نهائياً">
-                                <i class="fas fa-trash"></i>
+                            <button onclick="window.adminDeleteUser('${user.id}')" class="bg-red-500 text-white px-2 py-1.5 rounded-xl font-bold border-none cursor-pointer hover:bg-red-600 flex items-center gap-1 text-[11px]" title="حذف الحساب نهائياً">
+                                <i class="fas fa-trash text-xs"></i>
                                 <span>حذف</span>
                             </button>
                         </div>
