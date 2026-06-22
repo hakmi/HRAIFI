@@ -172,7 +172,8 @@
             tempUserData: null,
             activeMapType: 'street', // 'street' or 'satellite'
             activeVideoCallId: null,
-            isGpsActive: false
+            isGpsActive: false,
+            rechargeAmount: 2000 // Default recharge value DZD
         };
         
         window.cloudApi = { 
@@ -371,7 +372,7 @@
     </div>
 
     <!-- Live Synchronized Video Call Dialog (Real WebRTC Simulation camera feeds) -->
-    <div id="video-call-overlay" class="fixed inset-0 bg-slate-950/95 z-[999999] hidden flex flex-col justify-between p-6 text-white text-right font-sans">
+    <div id="video-call-overlay" class="fixed inset-0 bg-slate-950/95 z-[999999] hidden flex flex-col justify-between p-6 text-white text-right font-sans font-sans">
         <div class="flex justify-between items-center bg-slate-900/60 p-4 rounded-2xl border border-white/10">
             <span class="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
                 <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span> 
@@ -415,7 +416,7 @@
     </div>
 
     <!-- Dynamic Incoming Video Call Request Dialogue (Accept/Reject on Receiver end) -->
-    <div id="incoming-video-request-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[9999999] hidden flex items-center justify-center p-4 font-sans text-right">
+    <div id="incoming-video-request-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-[9999999] hidden flex items-center justify-center p-4 font-sans text-right font-sans">
         <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center space-y-5 border border-slate-200">
             <div class="relative w-20 h-20 mx-auto">
                 <div class="absolute inset-0 bg-indigo-500 rounded-full animate-ping opacity-25"></div>
@@ -426,6 +427,43 @@
             <div class="grid grid-cols-2 gap-3 pt-2">
                 <button onclick="window.rejectIncomingVideoCall()" class="w-full bg-red-50 text-red-650 hover:bg-red-100 font-extrabold py-3.5 rounded-2xl cursor-pointer border-none text-sm">رفض الكاميرا</button>
                 <button onclick="window.acceptIncomingVideoCall()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 rounded-2xl cursor-pointer border-none text-sm">موافقة وقبول</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ad Pop-up Modal for Artisan (ظهر الإشهار ويختفي خلف جرس الإشهارات) -->
+    <div id="artisan-ad-popup-modal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-md z-[9999999] hidden flex items-center justify-center p-4 font-sans text-right">
+        <div class="bg-white rounded-3xl max-w-md w-full overflow-hidden shadow-2xl border border-amber-500 flex flex-col">
+            <div class="relative h-48 bg-slate-900 flex items-center justify-center overflow-hidden">
+                <img id="ad-popup-img" src="" alt="صورة الإشهار" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=600&q=80'">
+                <div class="absolute top-4 right-4 bg-amber-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest"><i class="fas fa-bullhorn ml-1"></i> إشهار جديد</div>
+            </div>
+            <div class="p-6 space-y-4">
+                <h3 id="ad-popup-title" class="text-xl font-black text-slate-900">عنوان الإعلان التجاري</h3>
+                <p id="ad-popup-desc" class="text-xs text-slate-650 leading-relaxed font-bold">هذا هو وصف الإعلان التجاري وبث الإشهار لجميع شركائنا الحرفيين بالجزائر العاصمة.</p>
+                <button onclick="window.closeAdPopupAndBell()" class="btn-primary w-full py-3.5 text-xs font-black">
+                    <span>حفظ في جرس الإشهارات والعودة للعمل ✖</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ads Notifications History Modal (جرس الإشهارات) -->
+    <div id="artisan-ads-history-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[99999] hidden flex items-center justify-center p-4 font-sans text-right">
+        <div class="bg-white rounded-[2rem] p-6 max-w-md w-full shadow-2xl space-y-4 border border-slate-200 flex flex-col h-[70vh]">
+            <div class="flex justify-between items-center pb-3 border-b border-slate-100 shrink-0">
+                <button onclick="document.getElementById('artisan-ads-history-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-700 font-bold border-none bg-transparent cursor-pointer text-sm">✖</button>
+                <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                    <i class="fas fa-bell text-amber-500 animate-swing"></i>
+                    <span>مركز الإشهارات والتنبيهات المعتمدة</span>
+                </h3>
+            </div>
+            <div id="artisan-ads-list-container" class="flex-1 overflow-y-auto space-y-3 pr-1">
+                <!-- Loaded dynamically -->
+                <div class="text-center py-12 text-slate-400">
+                    <i class="fas fa-bell-slash text-4xl mb-2 text-slate-350"></i>
+                    <p class="text-xs font-bold">لا توجد إشهارات أو إعلانات مستهدفة لك حالياً.</p>
+                </div>
             </div>
         </div>
     </div>
@@ -450,7 +488,7 @@
     </div>
 
     <!-- Firebase Rules Interceptor Error Modal -->
-    <div id="firebase-rules-error-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[999999] hidden flex items-center justify-center p-4">
+    <div id="firebase-rules-error-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[999999] hidden flex items-center justify-center p-4 font-sans">
         <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-red-100 text-right font-sans">
             <div class="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center text-3xl mx-auto"><i class="fas fa-exclamation-triangle"></i></div>
             <h3 class="text-xl font-black text-slate-800 text-center">عذراً! فشل حفظ البيانات في السحابة</h3>
@@ -461,7 +499,7 @@
 
     <!-- Password Modal for Admin Panel Protection -->
     <div id="admin-auth-modal" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[99999] hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-right">
+        <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 text-right font-sans">
             <div class="w-14 h-14 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center text-2xl mx-auto"><i class="fas fa-lock"></i></div>
             <h3 class="text-lg font-black text-slate-800 text-center">لوحة الإدارة محمية</h3>
             <p class="text-xs text-slate-500 leading-relaxed text-center">يرجى إدخال كلمة السر الخاصة بالمدير العام لتأمين الوصول للوحة البيانات السحابية.</p>
@@ -674,7 +712,7 @@
             <div class="w-10"></div>
         </header>
 
-        <div class="p-6 max-w-md mx-auto space-y-4 text-right">
+        <div class="p-6 max-w-md mx-auto space-y-4 text-right font-sans">
             <div class="bg-blue-50 border border-blue-200 p-4 rounded-2xl text-right">
                 <h4 class="font-black text-blue-900 text-sm">💡 تسجيل ودخول فوري آمن:</h4>
                 <p class="text-xs text-blue-700 mt-1">أدخل رقم هاتف الواتساب والولاية المسجلة مسبقاً للتحقق السريع وتحديد موقعك المباشر في ثوانٍ.</p>
@@ -713,7 +751,7 @@
                 <span class="text-brand font-black text-xl tracking-tight">HRAIFI</span>
                 <span id="client-vip-badge" class="bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold hidden">VIP الأوائل</span>
             </div>
-            <div class="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600">
+            <div class="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-600 font-sans">
                 <i class="fas fa-map-marker-alt text-accentBlue"></i>
                 <span id="client-current-wilaya-badge">الجزائر العاصمة (16)</span>
             </div>
@@ -805,7 +843,7 @@
             </div>
 
             <!-- Description block to broadcast -->
-            <div class="bg-white p-4 rounded-3xl border border-slate-200/60 shadow-sm space-y-3">
+            <div class="bg-white p-4 rounded-3xl border border-slate-200/60 shadow-sm space-y-3 font-sans">
                 <h4 class="font-extrabold text-slate-800 text-sm">أضف تفاصيل العمل لإبلاغ الحرفيين:</h4>
                 <textarea id="cl-job-description" placeholder="اكتب بالتفصيل المشكلة أو العمل الذي تحتاجه ليتم بثه وتوزيعه لجميع الحرفيين على نطاق 100 كم..." class="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 outline-none text-xs font-bold focus:border-accentBlue focus:ring-1 focus:ring-accentBlue text-right h-20"></textarea>
                 
@@ -817,7 +855,7 @@
 
             <!-- List of available local artisans sorted by closest distance -->
             <div>
-                <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center justify-between mb-3 font-sans">
                     <h3 class="font-extrabold text-slate-800 text-base font-black">الحرفيون القريبون منك (مرتبون بالأقرب جغرافياً)</h3>
                     <span id="artisans-count" class="bg-blue-50 text-accentBlue text-xs px-2.5 py-1 rounded-full font-bold">... متصلين</span>
                 </div>
@@ -836,7 +874,7 @@
             <div class="w-10"></div>
         </header>
 
-        <div class="p-4 max-w-md mx-auto space-y-6 text-right">
+        <div class="p-4 max-w-md mx-auto space-y-6 text-right font-sans">
             <div class="bg-white rounded-3xl p-6 text-center border border-slate-200/60 shadow-sm relative overflow-hidden">
                 <div class="absolute top-4 left-4 bg-emerald-50 text-emerald-600 text-xs px-3 py-1 rounded-full font-bold flex items-center gap-1">
                     <span class="w-2 h-2 bg-emerald-500 rounded-full animate-ping"></span> متصل الآن
@@ -891,10 +929,18 @@
                 <span class="text-brand font-black text-xl tracking-tight">HRAIFI</span>
                 <span id="driver-vip-badge" class="bg-emerald-500 text-white text-[10px] px-2 py-0.5 rounded-full font-bold hidden">عضوية دائم مجاني 🎁</span>
             </div>
-            <button id="artisan-online-toggle" class="bg-emerald-50 text-emerald-600 text-xs px-3 py-1.5 rounded-xl font-bold flex items-center gap-2 border border-emerald-100">
-                <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
-                <span>متصل للعمل</span>
-            </button>
+            
+            <div class="flex items-center gap-3">
+                <!-- جرس الإشهارات الذكية (Ads Bell Notification Center) -->
+                <button onclick="window.openArtisanAdsHistory()" class="relative w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-700 hover:text-amber-500 active:scale-95 transition-all">
+                    <i class="fas fa-bell text-lg"></i>
+                    <span id="artisan-unread-ads-badge" class="absolute -top-1.5 -left-1.5 bg-red-650 text-white text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center border border-white hidden animate-bounce">0</span>
+                </button>
+                <button id="artisan-online-toggle" class="bg-emerald-50 text-emerald-600 text-xs px-3 py-1.5 rounded-xl font-bold flex items-center gap-2 border border-emerald-100">
+                    <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping"></span>
+                    <span>متصل للعمل</span>
+                </button>
+            </div>
         </header>
 
         <div class="fixed-top-map relative" style="height: 38vh;">
@@ -920,6 +966,28 @@
         <div class="p-4 max-w-md mx-auto space-y-4 text-right font-sans">
             <div id="artisan-trial-warning" class="bg-amber-50 border border-amber-200 p-4 rounded-2xl hidden">
                 <p class="text-xs text-amber-800 font-bold leading-relaxed text-right">أنت في الفترة التجريبية المجانية (متبقي <span id="artisan-trial-days">30</span> يوم). يمكنك بعدها تفعيل حسابك بـ 2000 د.ج سنوياً.</p>
+            </div>
+
+            <!-- Premium Wallet Card: Displays current balance + recharge lock button -->
+            <div class="bg-gradient-to-br from-slate-900 to-brandAccent rounded-3xl p-5 text-white border border-white/10 shadow-lg space-y-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-[10px] text-slate-300 font-black uppercase tracking-widest"><i class="fas fa-wallet ml-1 text-amber-400"></i> محفظتك المهنية حرايفي</span>
+                    <span class="bg-white/10 text-emerald-400 text-[10px] px-2.5 py-1 rounded-full font-bold">الحساب نشط</span>
+                </div>
+                <div class="flex justify-between items-end">
+                    <div class="text-right">
+                        <span class="text-[10px] text-slate-400 font-bold block">الرصيد المتوفر الحالي</span>
+                        <span id="artisan-wallet-balance" class="text-2xl font-black text-amber-400">0.00 د.ج</span>
+                    </div>
+                    <button onclick="window.triggerArtisanRecharge()" class="bg-amber-500 hover:bg-amber-600 text-slate-900 text-xs font-black px-4 py-2.5 rounded-xl border-none cursor-pointer flex items-center gap-1.5 transition-all shadow-md active:scale-95">
+                        <i class="fas fa-bolt animate-pulse"></i>
+                        <span>🔋 شحن رصيد إضافي</span>
+                    </button>
+                </div>
+                <div class="text-[10px] text-slate-400 border-t border-white/5 pt-2 flex justify-between font-bold">
+                    <span>صالح لغاية: <strong class="text-slate-200" id="artisan-wallet-expiry">تفعيل دائم مجاني</strong></span>
+                    <span>نوع البوابة: <strong>Chargily v2</strong></span>
+                </div>
             </div>
 
             <!-- Real-time Geo-Broadcast Jobs Box -->
@@ -965,16 +1033,16 @@
             <div class="text-left font-black text-brand text-base">HRAIFI Integration</div>
         </div>
 
-        <div class="p-6 max-w-md mx-auto w-full space-y-6 overflow-y-auto flex-1">
+        <div class="p-6 max-w-md mx-auto w-full space-y-6 overflow-y-auto flex-1 font-sans text-right">
             <div class="bg-slate-50 rounded-3xl p-6 border border-lightBorder space-y-4 shadow-sm">
                 <div class="text-center pb-4 border-b border-lightBorder">
                     <span class="text-slate-400 text-xs">المستفيد من الأموال:</span>
                     <h3 class="text-lg font-black text-darkText" id="sim-account-name">HAKEMI ABDELKRIM</h3>
-                    <p class="text-xs text-brand mt-1">تفعيل العضوية السنوية للحرفي HRAIFI</p>
+                    <p class="text-xs text-brand mt-1" id="sim-recharge-purpose">تفعيل العضوية السنوية للحرفي HRAIFI</p>
                 </div>
-                <div class="flex justify-between items-center text-sm font-bold text-slate-600">
+                <div class="flex justify-between items-center text-sm font-bold text-slate-650">
                     <span>مبلغ الاشتراك المطلوب:</span>
-                    <span class="text-2xl font-black text-emerald-600">2000.00 د.ج</span>
+                    <span id="sim-recharge-amount-label" class="text-2xl font-black text-emerald-600">2000.00 د.ج</span>
                 </div>
             </div>
 
@@ -989,7 +1057,7 @@
             </div>
         </div>
 
-        <div class="p-6 bg-slate-50 border-t border-lightBorder space-y-2">
+        <div class="p-6 bg-slate-50 border-t border-lightBorder space-y-2 font-sans">
             <button onclick="window.confirmSimulatedPayment(true)" class="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl hover:bg-emerald-700 shadow-lg border-none cursor-pointer">
                 تأكيد الدفع التلقائي وتسجيل السجلات ✔
             </button>
@@ -1025,17 +1093,21 @@
         <!-- Navigation Tabs Bar -->
         <div class="bg-white border-b border-slate-200 sticky top-[72px] z-40">
             <div class="max-w-6xl mx-auto px-4 flex justify-around sm:justify-start gap-4 md:gap-8 overflow-x-auto" style="scrollbar-width: none;">
-                <button id="tab-btn-accounts" onclick="window.switchAdminTab('accounts')" class="admin-tab-btn active py-4 px-2 text-xs md:text-sm font-bold text-slate-600 hover:text-slate-900 flex items-center gap-2 cursor-pointer">
+                <button id="tab-btn-accounts" onclick="window.switchAdminTab('accounts')" class="admin-tab-btn active py-4 px-2 text-xs md:text-sm font-bold text-slate-650 hover:text-slate-900 flex items-center gap-2 cursor-pointer">
                     <i class="fas fa-users-cog"></i>
                     <span>إدارة الحسابات والرقابة</span>
                 </button>
-                <button id="tab-btn-radar" onclick="window.switchAdminTab('radar')" class="admin-tab-btn py-4 px-2 text-xs md:text-sm font-bold text-slate-600 hover:text-slate-900 flex items-center gap-2 cursor-pointer">
+                <button id="tab-btn-radar" onclick="window.switchAdminTab('radar')" class="admin-tab-btn py-4 px-2 text-xs md:text-sm font-bold text-slate-650 hover:text-slate-900 flex items-center gap-2 cursor-pointer">
                     <i class="fas fa-satellite-dish"></i>
                     <span>تتبع الـ GPS والتحليلات الحية</span>
                 </button>
-                <button id="tab-btn-chargily" onclick="window.switchAdminTab('chargily')" class="admin-tab-btn py-4 px-2 text-xs md:text-sm font-bold text-slate-600 hover:text-slate-900 flex items-center gap-2 cursor-pointer">
+                <button id="tab-btn-broadcast-ads" onclick="window.switchAdminTab('broadcast-ads')" class="admin-tab-btn py-4 px-2 text-xs md:text-sm font-bold text-slate-650 hover:text-slate-900 flex items-center gap-2 cursor-pointer">
+                    <i class="fas fa-bullhorn text-amber-500 animate-pulse"></i>
+                    <span>بث الإشهارات والإعلانات للولايات</span>
+                </button>
+                <button id="tab-btn-chargily" onclick="window.switchAdminTab('chargily')" class="admin-tab-btn py-4 px-2 text-xs md:text-sm font-bold text-slate-650 hover:text-slate-900 flex items-center gap-2 cursor-pointer">
                     <i class="fas fa-wallet"></i>
-                    <span>إعدادات الدفع و UltraMsg API</span>
+                    <span>إعدادات الدفع ومحاكي الـ Webhook</span>
                 </button>
             </div>
         </div>
@@ -1191,7 +1263,53 @@
                 </div>
             </div>
 
-            <!-- TAB 3 CONTENT -->
+            <!-- TAB 3: BROADCAST SMART ADS (بث الإشهارات الذكية المخصصة للولايات) -->
+            <div id="admin-tab-content-broadcast-ads" class="admin-tab-content hidden space-y-6 text-right font-sans">
+                <div class="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm space-y-4">
+                    <div class="flex items-center gap-2.5 pb-3 border-b border-slate-150">
+                        <i class="fas fa-bullhorn text-2xl text-amber-500 animate-bounce"></i>
+                        <h3 class="text-base font-black text-slate-900">إنشاء وبث إشهار ذكي مخصص للحرفيين</h3>
+                    </div>
+                    <p class="text-xs text-slate-500">يتيح لك هذا القسم إرسال عروض ترويجية أو تحديثات إشهارية (نص وصورة) لجميع الحرفيين، أو اختيار ولاية جزائرية محددة لاستهداف حرفييها فقط.</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <label class="block text-xs font-bold text-slate-650">عنوان الإشهار التجاري *</label>
+                            <input id="ad-form-title" type="text" placeholder="مثال: خصومات حصرية على معدات السباكة!" class="id-input text-xs">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="block text-xs font-bold text-slate-650">رابط صورة الإشهار (Image URL) *</label>
+                            <input id="ad-form-image" type="text" placeholder="https://example.com/ad-banner.jpg" class="id-input font-mono text-xs text-left" dir="ltr">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="block text-xs font-bold text-slate-650">الولاية المستهدفة للبث *</label>
+                            <select id="ad-form-wilaya-target" class="id-input bg-white text-xs font-black text-right">
+                                <option value="all">كل الولايات الـ 69 (بث عام للجميع)</option>
+                                <!-- Will be cloned dynamically -->
+                            </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="block text-xs font-bold text-slate-650">قناة الإرسال المفضلة *</label>
+                            <select id="ad-form-channel" class="id-input bg-white text-xs font-black text-right">
+                                <option value="both">المنصة + إشعار واتساب OTP لزيادة الانتباه</option>
+                                <option value="platform">المنصة فقط (يظهر خلف جرس الإشهارات)</option>
+                                <option value="whatsapp">واتساب فقط عبر حساباتهم الموثقة</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-2 space-y-1">
+                            <label class="block text-xs font-bold text-slate-650">نص وتفاصيل الإشهار بالكامل *</label>
+                            <textarea id="ad-form-desc" placeholder="اكتب هنا العرض الإعلاني بالتفصيل، وسيظهر فوراً للحرفيين المستهدفين خلف جرس الإشهارات بالمنصة..." class="id-input h-24 text-xs"></textarea>
+                        </div>
+                    </div>
+
+                    <button onclick="window.broadcastSmartAd()" class="btn-primary py-4 font-black">
+                        <i class="fas fa-paper-plane"></i>
+                        <span>بث الإشهار السحابي واستهداف الحرفيين فوراً</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 4 CONTENT: API Configurations + Chargily Webhook Simulator -->
             <div id="admin-tab-content-chargily" class="admin-tab-content hidden space-y-6 text-right">
                 <div class="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm space-y-4">
                     <h4 class="font-black text-slate-800 text-sm"><i class="fas fa-key text-purple-600"></i> تعديل إعدادات الدفع والمصادقة للواتساب السحابية</h4>
@@ -1223,6 +1341,71 @@
                     </div>
                     <button onclick="window.saveAPISettings()" class="btn-primary py-3.5 mt-2">حفظ التغييرات وتعميمها في السحابة</button>
                 </div>
+
+                <!-- DYNAMIC WEBHOOK SIMULATOR & TESTER (محاكي نقطة نهاية رابط الويب لبريد الجزائر / الذهبية) -->
+                <div class="bg-slate-900 text-white p-6 rounded-3xl border border-slate-700 shadow-xl space-y-4 font-sans">
+                    <div class="flex items-center gap-2 pb-3 border-b border-slate-800">
+                        <i class="fas fa-satellite text-2xl text-emerald-400"></i>
+                        <h3 class="text-base font-black">مختبر ومحاكي الـ Webhook لـ Chargily Pay</h3>
+                    </div>
+                    <p class="text-xs text-slate-400 leading-relaxed">بما أن الخوادم المحلية لا تستقبل روابط ويب مباشرة دون عنوان عام، يمكنك عبر هذا المبرمج **محاكاة إشعار دفع ناجح (checkout.paid)** وتوقيع الطلب بـ HMAC-SHA256 لمراقبة الاستجابة السحابية التلقائية وتحديث أرصدة الحرفيين ميدانياً.</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="space-y-1">
+                            <label class="block text-[10px] font-bold text-slate-400">رقم هاتف الحرفي المراد شحن رصيده *</label>
+                            <select id="webhook-sim-artisan-phone" class="id-input bg-slate-800 text-white text-xs text-right border-slate-700">
+                                <!-- Will be loaded dynamically with registered driver phone numbers -->
+                            </select>
+                        </div>
+                        <div class="space-y-1">
+                            <label class="block text-[10px] font-bold text-slate-400">المبلغ المراد محاكاته (د.ج) *</label>
+                            <input id="webhook-sim-amount" type="number" value="2000" class="id-input bg-slate-800 text-white text-xs text-center font-bold border-slate-700">
+                        </div>
+                        <div class="space-y-1">
+                            <label class="block text-[10px] font-bold text-slate-400">طريقة محاكاة التوقيع الرقمي *</label>
+                            <select id="webhook-sim-verify" class="id-input bg-slate-800 text-white text-xs text-right border-slate-700">
+                                <option value="valid">توقيع صحيح ومصادق (HMAC-SHA256) ✔</option>
+                                <option value="invalid">توقيع تالف أو مزور (محاكاة اختراق) ✖</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- JSON Event Payload Display Box -->
+                    <div class="space-y-1.5">
+                        <label class="block text-[10px] font-bold text-slate-400">حمولة حدث JSON المرسلة (Webhook Payload):</label>
+                        <pre id="webhook-payload-preview" class="bg-black/60 p-4 rounded-xl text-[10px] font-mono overflow-x-auto text-left text-emerald-400" dir="ltr"></pre>
+                    </div>
+
+                    <button onclick="window.executeSimulatedWebhookPost()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3.5 rounded-2xl border-none cursor-pointer transition-all flex items-center justify-center gap-2">
+                        <i class="fas fa-play"></i>
+                        <span>إرسال وتفعيل الـ Webhook التلقائي لتحديث الأرصدة بالسحابة</span>
+                    </button>
+                    
+                    <!-- Developers Section containing python code -->
+                    <div class="bg-black/40 p-4 rounded-2xl border border-slate-800 text-right space-y-2 mt-4">
+                        <h4 class="text-xs font-black text-amber-400"><i class="fas fa-code ml-1"></i> كود نقطة النهاية (Django Endpoint) الفعلي للإنتاج:</h4>
+                        <p class="text-[10px] text-slate-400 leading-relaxed">عند رفع تطبيقك على خادم حقيقي (مثل VPS) قم بإعداد الكود التالي بلغة بايثون للتحقق التلقائي الآمن وتحديث Firestore:</p>
+                        <pre class="bg-black/80 p-3 rounded-lg text-[9px] font-mono text-left overflow-x-auto text-blue-300" dir="ltr"># Django implementation for Chargily Webhook
+import hmac, hashlib, json
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+
+@csrf_exempt
+def chargily_webhook(request):
+    signature = request.headers.get('signature')
+    payload = request.body.decode('utf-8')
+    computed = hmac.new('SECRET_KEY'.encode('utf-8'), request.body, hashlib.sha256).hexdigest()
+    
+    if not hmac.compare_digest(signature, computed):
+        return HttpResponse(status=403)
+        
+    event = json.loads(payload)
+    if event['type'] == 'checkout.paid':
+        # update_artisan_balance_in_firestore(event['data'])
+        pass
+    return JsonResponse({}, status=200)</pre>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1251,6 +1434,7 @@
         let localUsersList = [];
         let localBroadcastList = [];
         let localDealsList = [];
+        let localAdsList = [];
         let artisanMarkersList = [];
         let chartsInstances = [];
         let ringingInterval = null;
@@ -1276,11 +1460,11 @@
 
         // Complete Wilayas loading logic
         const populateWilayas = () => {
-            const selects = ['dr-reg-wilaya', 'cl-reg-wilaya', 'jump-wilaya-select'];
+            const selects = ['dr-reg-wilaya', 'cl-reg-wilaya', 'jump-wilaya-select', 'ad-form-wilaya-target'];
             selects.forEach(selId => {
                 const el = document.getElementById(selId);
                 if (el) {
-                    el.innerHTML = '';
+                    el.innerHTML = selId === 'ad-form-wilaya-target' ? '<option value="all">كل الولايات الـ 69 (بث عام للجميع)</option>' : '';
                     Object.keys(window.algerianWilayas).sort().forEach(code => {
                         const option = document.createElement('option');
                         option.value = code;
@@ -1493,6 +1677,8 @@
                 }
 
                 window.updateArtisansAndClientsData();
+                window.refreshArtisanWalletDisplay();
+                window.loadArtisansIntoWebhookDropdown();
             }, (error) => console.error("Error reading users snapshot", error));
 
             // Sync Broadcast Jobs/Rides
@@ -1553,6 +1739,16 @@
                 window.renderAdminDealsTable();
                 window.renderAdminTable();
             }, (error) => console.error("Error reading deals snapshot", error));
+
+            // NEW: Real-Time Advertisements Listener (Rule 1 Path)
+            onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'advertisements'), (snapshot) => {
+                localAdsList = [];
+                snapshot.forEach(doc => {
+                    localAdsList.push(doc.data());
+                });
+                
+                window.checkArtisanForNewAds();
+            }, (error) => console.error("Error reading advertisements snapshot", error));
         };
 
         // Real-time automatic GPS watcher coordinates updater & Cloud Logger
@@ -1604,10 +1800,10 @@
         window.seedDefaultCloudData = async () => {
             console.log("Database empty. Auto-seeding active mock users for premium demonstration.");
             const defaultMocks = [
-                { id: "0661999888", fname: "بلحاج السباك المعتمد", phone: "0661999888", type: "driver", serviceType: "plumber", password: "123", wilaya: "16", isFirst100: true, lastLat: 36.7555, lastLng: 3.0459, trialStart: Date.now(), status: "approved", deviceType: "هاتف محمول (Mobile)" },
-                { id: "0554332211", fname: "حمزة الكهربائي المحترف", phone: "0554332211", type: "driver", serviceType: "electrician", password: "123", wilaya: "16", isFirst100: true, lastLat: 36.7495, lastLng: 3.0389, trialStart: Date.now(), status: "approved", deviceType: "تابلت (Tablet)" },
-                { id: "0771887766", fname: "سمير للدهان والتزيين", phone: "0771887766", type: "driver", serviceType: "painter", password: "123", wilaya: "31", isFirst100: false, lastLat: 35.6971, lastLng: -0.6308, trialStart: Date.now(), status: "approved", deviceType: "هاتف محمول (Mobile)" },
-                { id: "0662334455", fname: "زهير لأعمال البناء والترميم", phone: "0662334455", type: "driver", serviceType: "builder", password: "123", wilaya: "19", isFirst100: true, lastLat: 36.1900, lastLng: 5.4133, trialStart: Date.now(), status: "approved", deviceType: "حاسوب (Desktop)" },
+                { id: "0661999888", fname: "بلحاج السباك المعتمد", phone: "0661999888", type: "driver", serviceType: "plumber", password: "123", wilaya: "16", isFirst100: true, lastLat: 36.7555, lastLng: 3.0459, trialStart: Date.now(), status: "approved", deviceType: "هاتف محمول (Mobile)", balance: 2000 },
+                { id: "0554332211", fname: "حمزة الكهربائي المحترف", phone: "0554332211", type: "driver", serviceType: "electrician", password: "123", wilaya: "16", isFirst100: true, lastLat: 36.7495, lastLng: 3.0389, trialStart: Date.now(), status: "approved", deviceType: "تابلت (Tablet)", balance: 4000 },
+                { id: "0771887766", fname: "سمير للدهان والتزيين", phone: "0771887766", type: "driver", serviceType: "painter", password: "123", wilaya: "31", isFirst100: false, lastLat: 35.6971, lastLng: -0.6308, trialStart: Date.now(), status: "approved", deviceType: "هاتف محمول (Mobile)", balance: 0 },
+                { id: "0662334455", fname: "زهير لأعمال البناء والترميم", phone: "0662334455", type: "driver", serviceType: "builder", password: "123", wilaya: "19", isFirst100: true, lastLat: 36.1900, lastLng: 5.4133, trialStart: Date.now(), status: "approved", deviceType: "حاسوب (Desktop)", balance: 5000 },
                 { id: "0551112233", fname: "كريم الجزائري", phone: "0551112233", type: "passenger", isFirst100: true, lastLat: 36.7525, lastLng: 3.0419, wilaya: "16", deviceType: "هاتف محمول (Mobile)" }
             ];
 
@@ -1670,7 +1866,9 @@
                 isFirst100: false,
                 lastLat: 36.7525,
                 lastLng: 3.0419,
-                deviceType: window.getDeviceType()
+                deviceType: window.getDeviceType(),
+                balance: 0,
+                readAds: []
             };
 
             // Check password if old user
@@ -1789,6 +1987,7 @@
                     window.showScreen('screen-driver-dash');
                 }
             }
+            window.refreshArtisanWalletDisplay();
         };
 
         window.broadcastJobRequest = async () => {
@@ -2624,9 +2823,13 @@
                 document.getElementById('api-ccp-name').value = window.chargilyConfig.accountName;
                 document.getElementById('api-instance-id').value = window.cloudApi.instanceId;
                 document.getElementById('api-token').value = window.cloudApi.token;
+                window.loadArtisansIntoWebhookDropdown();
+                window.updateWebhookPayloadPreview();
             } else if (tab === 'accounts') {
                 window.renderAdminTable();
                 window.renderAdminDealsTable();
+            } else if (tab === 'broadcast-ads') {
+                // Done automatically
             }
         };
 
@@ -2704,7 +2907,7 @@
                 aiTextEl.innerHTML = `
                     بناءً على تحليلات الحسابات المباشرة، تغطي المنصة حالياً <strong>${uniqueWilayas} ولاية جزائرية</strong> بنسبة انتشار ممتازة. 
                     يقدر عدد الحرفيين بـ <strong>${artisansCount} حرفي</strong> مقابل <strong>${clientsCount} زبون نشط</strong>. 
-                    إجمالي الصفقات الجغرافية المتفق عليها ميدانياً قيمتها <strong>${totalAgreedRevenue.toFixed(0)} د.ج</strong> عبر <strong>${totalDeals} صفقات ناجحة</strong>.
+                    إجمالي الصفقات والاشتراكات المتفق عليها ميدانياً قيمتها <strong>${totalAgreedRevenue.toFixed(0)} د.ج</strong> عبر <strong>${totalDeals} صفقات ناجحة</strong>.
                 `;
             }
 
@@ -2735,6 +2938,7 @@
                 const specialtyName = isArtisan ? (window.craftSettings[user.serviceType]?.name || user.serviceType) : '--';
                 const priceLabel = isArtisan ? (window.craftSettings[user.serviceType]?.basePrice || "1500 د.ج") : '--';
                 const deviceName = user.deviceType || "هاتف محمول (Mobile)";
+                const balanceVal = isArtisan ? `${user.balance || 0} د.ج` : '--';
 
                 tr.innerHTML = `
                     <td class="p-4 flex items-center gap-3">
@@ -2753,11 +2957,11 @@
                             <span class="text-[9px] text-indigo-600 bg-indigo-50 px-1 py-0.5 rounded"><i class="fas fa-laptop-code"></i> ${deviceName}</span>
                         </div>
                     </td>
-                    <td class="p-4 font-bold font-sans">
+                    <td class="p-4 font-bold font-sans text-right">
                         <p class="text-slate-800">ولاية ${user.wilaya || '--'}</p>
-                        <p class="text-[10px] text-slate-400 font-semibold">${specialtyName} • السعر: <span class="text-emerald-600">${priceLabel}</span></p>
+                        <p class="text-[10px] text-slate-450">${specialtyName} • الرصيد: <strong class="text-purple-650">${balanceVal}</strong></p>
                     </td>
-                    <td class="p-4 font-bold">
+                    <td class="p-4 font-bold text-right">
                         ${stateBadge}
                     </td>
                     <td class="p-4 text-center">
@@ -3023,7 +3227,7 @@
             const artisansCount = localUsersList.filter(u => u.type === 'driver').length;
             const clientsCount = localUsersList.filter(u => u.type === 'passenger').length;
 
-            // Chart 1: Real Negotiated Transactions from database
+            // Chart 1: Real Negotiated Transactions from database + recharges
             const ctx1 = document.getElementById('financeCurveChart');
             if (ctx1) {
                 const totalAgreedRevenue = localDealsList.reduce((acc, curr) => acc + (curr.amount || 0), 0);
@@ -3119,35 +3323,445 @@
             }
         };
 
-        // Chargily simulation confirmations
+        // NEW: Artisan Balance Recharge Lock triggered by the top up action
+        window.triggerArtisanRecharge = () => {
+            window.appState.rechargeMode = true;
+            window.appState.rechargeAmount = 2000; // top up 2000 DZD
+            
+            const reasonEl = document.getElementById('sim-recharge-purpose');
+            if (reasonEl) reasonEl.innerText = `🔋 شحن رصيد إضافي بالزيادة لمحفظة حرايفي: ${window.appState.currentUser.fname}`;
+            
+            const amountEl = document.getElementById('sim-recharge-amount-label');
+            if (amountEl) amountEl.innerText = `${window.appState.rechargeAmount.toFixed(2)} د.ج`;
+
+            window.showScreen('screen-chargily-simulator');
+        };
+
+        // Chargily simulation confirmations (Supports both registration and recharge top-ups)
         window.paySubscription = () => {
+            window.appState.rechargeMode = false;
+            window.appState.rechargeAmount = 2000;
+            
+            const reasonEl = document.getElementById('sim-recharge-purpose');
+            if (reasonEl) reasonEl.innerText = "تفعيل العضوية السنوية الاحترافية لمنصة حرايفي";
+
+            const amountEl = document.getElementById('sim-recharge-amount-label');
+            if (amountEl) amountEl.innerText = `2000.00 د.ج`;
+
             window.showScreen('screen-chargily-simulator');
         };
 
         window.confirmSimulatedPayment = async (isSuccess) => {
             if (isSuccess) {
-                window.showToast("تم تفعيل العضوية السنوية بنجاح!", "success");
-                window.appState.currentUser.status = 'approved';
-                
-                if (isFirebaseActive && auth.currentUser) {
-                    try {
-                        await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', window.appState.currentUser.id), {
-                            status: 'approved'
-                        }, { merge: true });
-                    } catch(e) {
-                        console.error("Firebase update failed", e);
+                if (window.appState.rechargeMode) {
+                    // TOP UP RECHARGE MODE
+                    const prevBalance = window.appState.currentUser.balance || 0;
+                    const topUpPrice = window.appState.rechargeAmount;
+                    const finalBalance = prevBalance + topUpPrice;
+
+                    window.appState.currentUser.balance = finalBalance;
+
+                    if (isFirebaseActive && auth.currentUser) {
+                        try {
+                            // Update balance inside Firestore (Rule 1 compliant)
+                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', window.appState.currentUser.id), {
+                                balance: finalBalance
+                            }, { merge: true });
+
+                            // Write recharge deal inside deals collection for real dynamic dynamic charts!
+                            const dealId = 'RECH-' + Date.now();
+                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'deals', dealId), {
+                                id: dealId,
+                                clientPhone: "بوابة شحن الرصيد",
+                                clientName: "دفع شحن بالبطاقة",
+                                artisanPhone: window.appState.currentUser.phone,
+                                artisanName: window.appState.currentUser.fname,
+                                craft: window.appState.currentUser.serviceType || "عام",
+                                amount: topUpPrice,
+                                timestamp: Date.now()
+                            });
+
+                            window.showToast(`تم شحن رصيدك بالزيادة بنجاح! الرصيد المضاف: +${topUpPrice} د.ج`, "success");
+                            window.addAdminTracerLog(`تم تأكيد معاملة شحن بالرصيد إلكترونياً للحرفي: ${window.appState.currentUser.fname}`);
+                        } catch(e) {
+                            console.error("Top up write failed", e);
+                        }
+                    } else {
+                        window.showToast(`تم شحن الرصيد محلياً بنجاح! رصيدك الجديد: ${finalBalance} د.ج`, "success");
                     }
+
+                    // Return to dashboard
+                    window.checkArtisanStatusAndLaunch();
+                } else {
+                    // FIRST TIME REGISTRATION REGULAR MEMBERSHIP MODE
+                    window.showToast("تم تفعيل العضوية السنوية بنجاح!", "success");
+                    window.appState.currentUser.status = 'approved';
+                    window.appState.currentUser.balance = (window.appState.currentUser.balance || 0) + 2000; // starting credit
+                    
+                    if (isFirebaseActive && auth.currentUser) {
+                        try {
+                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', window.appState.currentUser.id), {
+                                status: 'approved',
+                                balance: window.appState.currentUser.balance
+                            }, { merge: true });
+
+                            // Write activation deal to deals collection
+                            const dealId = 'ACT-' + Date.now();
+                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'deals', dealId), {
+                                id: dealId,
+                                clientPhone: "بوابة التفعيل",
+                                clientName: "اشتراك سنوي",
+                                artisanPhone: window.appState.currentUser.phone,
+                                artisanName: window.appState.currentUser.fname,
+                                craft: window.appState.currentUser.serviceType || "عام",
+                                amount: 2000,
+                                timestamp: Date.now()
+                            });
+                        } catch(e) {
+                            console.error("Firebase update failed", e);
+                        }
+                    }
+
+                    // WhatsApp alert for payment received
+                    const notifyOwnerText = `تم استلام دفعة جديدة بقيمة 2000.00 د.ج للحرفي ${window.appState.currentUser.fname} بنجاح عبر حساب بريد الجزائر جاري الخاص بكم.`;
+                    await window.sendRealWhatsAppMessage(window.appState.personalOwnerPhone, notifyOwnerText);
+
+                    window.checkArtisanStatusAndLaunch();
                 }
-
-                // WhatsApp alert for payment received
-                const notifyOwnerText = `تم استلام دفعة جديدة بقيمة 2000.00 د.ج للحرفي ${window.appState.currentUser.fname} بنجاح عبر حساب بريد الجزائر جاري الخاص بكم.`;
-                await window.sendRealWhatsAppMessage(window.appState.personalOwnerPhone, notifyOwnerText);
-
-                window.checkArtisanStatusAndLaunch();
             } else {
                 window.showToast("تم إلغاء عملية الدفع", "error");
-                window.showScreen('screen-driver-locked');
+                if (window.appState.rechargeMode) {
+                    window.showScreen('screen-driver-dash');
+                } else {
+                    window.showScreen('screen-driver-locked');
+                }
             }
+        };
+
+        // NEW: Refresh the Artisan dashboard card wallet balance values
+        window.refreshArtisanWalletDisplay = () => {
+            const user = window.appState.currentUser;
+            if (!user || user.type !== 'driver') return;
+
+            const balEl = document.getElementById('artisan-wallet-balance');
+            const expEl = document.getElementById('artisan-wallet-expiry');
+            
+            if (balEl) balEl.innerText = `${(user.balance || 0).toFixed(2)} د.ج`;
+            if (expEl) {
+                if (user.isFirst100) {
+                    expEl.innerHTML = `<span class="text-emerald-400">عضوية دائمة مجانية 🎁</span>`;
+                } else {
+                    const expiry = new Date(user.trialStart + (365 * 24 * 60 * 60 * 1000));
+                    expEl.innerText = expiry.toLocaleDateString('ar-DZ');
+                }
+            }
+        };
+
+        // NEW: Admin broadcast smart advertisements targeting Wilayas or globally
+        window.broadcastSmartAd = async () => {
+            const title = document.getElementById('ad-form-title').value.trim();
+            const desc = document.getElementById('ad-form-desc').value.trim();
+            const image = document.getElementById('ad-form-image').value.trim();
+            const targetWilaya = document.getElementById('ad-form-wilaya-target').value;
+            const channel = document.getElementById('ad-form-channel').value;
+
+            if (!title || !desc) {
+                return window.showToast("يرجى ملء عنوان ونص الإشهار على الأقل لبثه سحابياً", "error");
+            }
+
+            const adId = 'AD-' + Date.now();
+            const adDoc = {
+                id: adId,
+                title: title,
+                desc: desc,
+                imageUrl: image || 'https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=600&q=80',
+                targetWilaya: targetWilaya,
+                timestamp: Date.now()
+            };
+
+            window.showToast("جاري إبرام وبث الإعلان التجاري وتمريره للسحابة...", "info");
+
+            if (isFirebaseActive) {
+                try {
+                    // Write to Rule 1 strictly compliant path
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'advertisements', adId), adDoc);
+                    window.showToast("✔ تم بث الإشهار التجاري بنجاح وسيدخل حيز التنفيذ لحظياً!", "success");
+                    window.addAdminTracerLog(`[إعلان تجاري] تم بث إشهار جديد بعنوان: ${title} يستهدف ولاية: ${targetWilaya}`);
+
+                    // Send WhatsApp notifications to the targeted Wilaya's artisans
+                    const targetArtisans = localUsersList.filter(u => {
+                        if (u.type !== 'driver') return false;
+                        if (targetWilaya !== 'all' && u.wilaya !== targetWilaya) return false;
+                        return true;
+                    });
+
+                    if (channel === 'both' || channel === 'whatsapp') {
+                        targetArtisans.forEach(async (art) => {
+                            const smsText = `عاجل من منصة حرايفي HRAIFI 📣\n*${title}*\n\n${desc}\n(افتح التطبيق الآن للإطلاع على التفاصيل الكاملة بالصور في جرس الإشعارات).`;
+                            await window.sendRealWhatsAppMessage(art.phone, smsText);
+                        });
+                        window.showToast(`تم إرسال إشعارات الواتساب إلى ${targetArtisans.length} حرفي مستهدف.`, "success");
+                    }
+
+                    // Reset fields
+                    document.getElementById('ad-form-title').value = '';
+                    document.getElementById('ad-form-desc').value = '';
+                    document.getElementById('ad-form-image').value = '';
+
+                } catch(e) {
+                    console.error("Ad broadcast failed", e);
+                }
+            }
+        };
+
+        // NEW: Real-time Listener on Artisan Client side for incoming targeted advertisements
+        window.checkArtisanForNewAds = () => {
+            const user = window.appState.currentUser;
+            if (!user || user.type !== 'driver') return;
+
+            const myWilaya = user.wilaya;
+            
+            // Filter advertisements applicable to this artisan
+            const myAds = localAdsList.filter(ad => {
+                return ad.targetWilaya === 'all' || ad.targetWilaya === myWilaya;
+            });
+
+            // Count unread ads based on array users read index
+            const readAds = user.readAds || [];
+            const unreadAds = myAds.filter(ad => !readAds.includes(ad.id));
+
+            const badge = document.getElementById('artisan-unread-ads-badge');
+            if (badge) {
+                if (unreadAds.length > 0) {
+                    badge.innerText = unreadAds.length;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+
+            // Show immediate modal popup for the newest unread ad (if present and screen is active)
+            if (unreadAds.length > 0) {
+                const newestAd = unreadAds[0];
+                
+                // Only popup if it hasn't been shown in the current session
+                if (window.appState.lastShownAdId !== newestAd.id) {
+                    window.appState.lastShownAdId = newestAd.id;
+                    
+                    document.getElementById('ad-popup-title').innerText = newestAd.title;
+                    document.getElementById('ad-popup-desc').innerText = newestAd.desc;
+                    document.getElementById('ad-popup-img').src = newestAd.imageUrl;
+
+                    document.getElementById('artisan-ad-popup-modal').classList.remove('hidden');
+                    window.playPing();
+                }
+            }
+        };
+
+        // Close Ad Popup and mark as read inside user metadata in Firestore
+        window.closeAdPopupAndBell = async () => {
+            document.getElementById('artisan-ad-popup-modal').classList.add('hidden');
+            const adId = window.appState.lastShownAdId;
+            const user = window.appState.currentUser;
+            
+            if (adId && user) {
+                const updatedReadAds = user.readAds || [];
+                if (!updatedReadAds.includes(adId)) {
+                    updatedReadAds.push(adId);
+                    user.readAds = updatedReadAds;
+
+                    if (isFirebaseActive) {
+                        try {
+                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', user.id), {
+                                readAds: updatedReadAds
+                            }, { merge: true });
+                        } catch(e) {
+                            console.error(e);
+                        }
+                    }
+                }
+            }
+        };
+
+        // Open Ads History list (جرس الإشهارات)
+        window.openArtisanAdsHistory = () => {
+            const user = window.appState.currentUser;
+            if (!user) return;
+
+            const container = document.getElementById('artisan-ads-list-container');
+            if (!container) return;
+
+            container.innerHTML = '';
+            
+            const myWilaya = user.wilaya;
+            const myAds = localAdsList.filter(ad => {
+                return ad.targetWilaya === 'all' || ad.targetWilaya === myWilaya;
+            });
+
+            if (myAds.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-12 text-slate-400">
+                        <i class="fas fa-bell-slash text-4xl mb-2 text-slate-350"></i>
+                        <p class="text-xs font-bold">لا توجد إشهارات أو إعلانات مستهدفة لك حالياً.</p>
+                    </div>
+                `;
+            } else {
+                myAds.sort((a,b) => b.timestamp - a.timestamp).forEach(ad => {
+                    const dateStr = new Date(ad.timestamp).toLocaleString('ar-DZ');
+                    const isRead = (user.readAds || []).includes(ad.id);
+                    
+                    const item = document.createElement('div');
+                    item.className = `p-4 rounded-2xl border transition-all text-right ${isRead ? 'bg-slate-50 border-slate-200' : 'bg-amber-50/70 border-amber-300'}`;
+                    item.innerHTML = `
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-[9px] text-slate-400 font-bold">${dateStr}</span>
+                            ${!isRead ? '<span class="bg-red-650 text-white text-[8px] font-black px-2 py-0.5 rounded-full">جديد</span>' : ''}
+                        </div>
+                        <h4 class="font-extrabold text-xs text-slate-800 mb-1">${ad.title}</h4>
+                        <p class="text-[10px] text-slate-650 leading-relaxed">${ad.desc}</p>
+                        <img src="${ad.imageUrl}" class="mt-2.5 w-full h-24 object-cover rounded-xl border border-slate-200" onerror="this.style.display='none'">
+                    `;
+                    container.appendChild(item);
+                });
+
+                // Once opened, mark all as read inside the database to clear badge
+                const allAdIds = myAds.map(ad => ad.id);
+                user.readAds = allAdIds;
+                
+                if (isFirebaseActive) {
+                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', user.id), {
+                        readAds: allAdIds
+                    }, { merge: true }).catch(e => console.error(e));
+                }
+            }
+
+            document.getElementById('artisan-ads-history-modal').classList.remove('hidden');
+        };
+
+        // NEW: Webhook simulator helper: Load active drivers phone numbers
+        window.loadArtisansIntoWebhookDropdown = () => {
+            const select = document.getElementById('webhook-sim-artisan-phone');
+            if (!select) return;
+
+            // Save old value
+            const prevVal = select.value;
+            select.innerHTML = '';
+
+            const drivers = localUsersList.filter(u => u.type === 'driver');
+            if (drivers.length === 0) {
+                select.innerHTML = '<option value="">لا يوجد حرفيون مسجلون حالياً</option>';
+                return;
+            }
+
+            drivers.forEach(dr => {
+                const opt = document.createElement('option');
+                opt.value = dr.phone;
+                opt.innerText = `${dr.fname} (${dr.phone})`;
+                select.appendChild(opt);
+            });
+
+            if (prevVal && drivers.some(d => d.phone === prevVal)) {
+                select.value = prevVal;
+            }
+            
+            // Listen to changes to redraw the JSON preview
+            select.onchange = () => window.updateWebhookPayloadPreview();
+            document.getElementById('webhook-sim-amount').oninput = () => window.updateWebhookPayloadPreview();
+        };
+
+        // Dynamically preview the JSON payload that would arrive at Django backend
+        window.updateWebhookPayloadPreview = () => {
+            const phone = document.getElementById('webhook-sim-artisan-phone').value;
+            const amountVal = document.getElementById('webhook-sim-amount').value || 2000;
+            const preview = document.getElementById('webhook-payload-preview');
+            
+            if (!preview) return;
+
+            const mockPayload = {
+                id: "EVT-" + Date.now().toString(36),
+                entity: "event",
+                livemode: "false",
+                type: "checkout.paid",
+                data: {
+                    id: "CHKT-" + Math.floor(Math.random()*1000000),
+                    entity: "checkout",
+                    fees: parseFloat(amountVal) * 0.01,
+                    amount: parseFloat(amountVal),
+                    locale: "ar",
+                    status: "paid",
+                    metadata: {
+                        artisanPhone: phone || "0670472249",
+                        rechargeType: "balance_top_up"
+                    },
+                    created_at: Math.floor(Date.now() / 1000),
+                    updated_at: Math.floor(Date.now() / 1000)
+                }
+            };
+
+            preview.innerText = JSON.stringify(mockPayload, null, 2);
+        };
+
+        // NEW: Execute Simulated Webhook payment confirmation (Simulates exact server-to-server POST)
+        window.executeSimulatedWebhookPost = async () => {
+            const phone = document.getElementById('webhook-sim-artisan-phone').value;
+            const amountVal = parseFloat(document.getElementById('webhook-sim-amount').value || 2000);
+            const signatureMode = document.getElementById('webhook-sim-verify').value;
+
+            if (!phone) {
+                return window.showToast("يرجى اختيار حرفي مسجل أولاً لتشغيل محاكاة الشحن السحابية له", "error");
+            }
+
+            window.showToast("جاري حساب التوقيع الرقمي HMAC-SHA256 والتحقق السحابي المتبادل...", "info");
+
+            setTimeout(async () => {
+                if (signatureMode === 'invalid') {
+                    window.showToast("خطأ 403: فشل التحقق من توقيع الـ Webhook! (تم صد محاولة اختراق أو تلاعب بنجاح) ✖", "error");
+                    window.addAdminTracerLog(`⚠️ [تحذير أمني] تم حظر محاولة دفع Webhook مزورة (توقيع تالف) للرقم: ${phone}`);
+                    return;
+                }
+
+                // VALID WEBHOOK PAYLOAD SIMULATION -> Executing Top-Up internally in Firebase! (Rule 1 & Rule 3 compliant)
+                const artisan = localUsersList.find(u => u.phone === phone);
+                if (artisan) {
+                    const prevBalance = artisan.balance || 0;
+                    const finalBalance = prevBalance + amountVal;
+
+                    if (isFirebaseActive) {
+                        try {
+                            // Update balance inside Firestore
+                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', artisan.id), {
+                                balance: finalBalance,
+                                status: 'approved' // ensure active status
+                            }, { merge: true });
+
+                            // Write transaction deal into deals collection
+                            const dealId = 'WEBH-' + Date.now();
+                            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'deals', dealId), {
+                                id: dealId,
+                                clientPhone: "رابط ويب (Webhook)",
+                                clientName: "دفع آلي مؤكد",
+                                artisanPhone: artisan.phone,
+                                artisanName: artisan.fname,
+                                craft: artisan.serviceType || "عام",
+                                amount: amountVal,
+                                timestamp: Date.now()
+                            });
+
+                            window.showToast(`✔ تم تأكيد ومعالجة الـ Webhook بنجاح! تم شحن رصيد الكابتن ${artisan.fname} بـ +${amountVal} د.ج وتفعيل حسابه تلقائياً.`, "success");
+                            window.addAdminTracerLog(`✅ [معاملة دفع] تم تلقي استجابة Webhook صحيحة بقيمة ${amountVal} د.ج للحرفي: ${artisan.fname}`);
+
+                            // Send congratulatory SMS via WhatsApp
+                            const notifyText = `تهانينا كابتن ${artisan.fname}! تم تأكيد دفعة الشحن الإلكتروني بقيمة ${amountVal} د.ج عبر Chargily Pay بنجاح. رصيدك الحالي الآن هو: ${finalBalance} د.ج. شكراً لثقتك بـ حرايفي HRAIFI!`;
+                            await window.sendRealWhatsAppMessage(artisan.phone, notifyText);
+
+                        } catch(e) {
+                            console.error(e);
+                        }
+                    }
+                } else {
+                    window.showToast("الحرفي المختار غير متواجد حالياً بقاعدة البيانات السحابية", "error");
+                }
+            }, 1500);
         };
 
         window.logoutApp = () => {
@@ -3155,6 +3769,15 @@
             window.appState.role = null;
             window.showScreen('screen-role-entrance');
         };
+
+        // Attach global scopes
+        window.broadcastSmartAd = broadcastSmartAd;
+        window.closeAdPopupAndBell = closeAdPopupAndBell;
+        window.openArtisanAdsHistory = openArtisanAdsHistory;
+        window.triggerArtisanRecharge = triggerArtisanRecharge;
+        window.executeSimulatedWebhookPost = executeSimulatedWebhookPost;
+        window.updateWebhookPayloadPreview = updateWebhookPayloadPreview;
+
     </script>
 </body>
 </html>
