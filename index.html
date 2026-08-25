@@ -5,1110 +5,682 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>حرايفي - Hraifi | المنصة الشاملة</title>
     
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#1d4ed8',
-                        secondary: '#f59e0b',
-                        dark: '#0f172a',
-                        success: '#10b981',
-                        danger: '#ef4444',
-                        info: '#3b82f6',
-                        frozen: '#0ea5e9', // For Gelée status
-                        paused: '#64748b'  // For Pause status
-                    },
-                    fontFamily: {
-                        cairo: ['Cairo', 'sans-serif'],
-                    }
-                }
-            }
-        }
-    </script>
     
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-
+    
     <style>
-        body { font-family: 'Cairo', sans-serif; background-color: #f8fafc; overflow-x: hidden; }
+        html, body { height: 100%; width: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #0f172a; }
+        body { font-family: 'Cairo', sans-serif; }
+        
+        /* Hide default scrollbars */
         .hide-scroll::-webkit-scrollbar { display: none; }
         .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
-        
-        /* Smooth Screen Transitions */
+
+        #main-wrapper { position: relative; width: 100%; max-width: 480px; margin: 0 auto; height: 100%; overflow: hidden; background: #ffffff; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        #admin-wrapper { position: relative; width: 100%; height: 100%; overflow: hidden; background: #f1f5f9; display: none; }
+
+        /* Screen Transitions */
         .screen-view {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
-            transform: translateY(10px);
-            display: flex;
-            flex-direction: column;
-            background: #f8fafc;
-            min-height: 100vh;
-            overflow-y: auto;
-            overflow-x: hidden;
-            z-index: 10;
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            opacity: 0; visibility: hidden; pointer-events: none;
+            transition: opacity 0.35s cubic-bezier(0.25, 1, 0.5, 1), transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+            transform: translateX(15%);
+            display: flex; flex-direction: column;
+            background: #f8fafc; height: 100%;
+            overflow-y: auto; overflow-x: hidden; z-index: 10;
+            -webkit-overflow-scrolling: touch;
         }
         .screen-view.active {
-            opacity: 1;
-            pointer-events: auto;
-            transform: translateY(0);
-            z-index: 20;
+            opacity: 1; visibility: visible; pointer-events: auto;
+            transform: translateX(0); z-index: 20;
         }
 
-        .app-container { max-width: 480px; margin: 0 auto; background: #ffffff; min-height: 100vh; position: relative; box-shadow: 0 0 40px rgba(0,0,0,0.1); }
-        .admin-container { width: 100%; min-height: 100vh; background: #f1f5f9; }
-
-        .map-pattern { background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 20px 20px; }
+        .map-pattern { 
+            background-color: #e2e8f0;
+            background-image: radial-gradient(#94a3b8 1px, transparent 1px); 
+            background-size: 20px 20px; 
+            position: relative;
+        }
         
+        .pin {
+            position: absolute; transform: translate(-50%, -100%); cursor: pointer;
+            transition: all 0.2s;
+        }
+        .pin:hover { transform: translate(-50%, -110%) scale(1.1); z-index: 50; }
         .pin-bounce { animation: bounce 2s infinite; }
+        
         @keyframes bounce {
             0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
             40% { transform: translateY(-10px); }
             60% { transform: translateY(-5px); }
         }
+        
+        .toast-enter { animation: toastIn 0.4s ease forwards; }
+        .toast-exit { animation: toastOut 0.4s ease forwards; }
+        @keyframes toastIn { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes toastOut { from { transform: translateY(0); opacity: 1; } to { transform: translateY(-100%); opacity: 0; } }
     </style>
 </head>
 <body class="text-slate-800 antialiased">
 
-    <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-[9999] flex flex-col gap-2 w-11/12 max-w-md pointer-events-none"></div>
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="fixed top-5 left-0 right-0 px-4 flex flex-col gap-2 z-[10000] max-w-md mx-auto pointer-events-none"></div>
 
-    <div id="global-loader" class="fixed inset-0 bg-white/90 z-[1000] flex-col items-center justify-center hidden backdrop-blur-sm">
-        <div class="relative w-24 h-24 flex items-center justify-center mb-4">
-            <div class="absolute inset-0 border-4 border-slate-200 rounded-full"></div>
-            <div class="absolute inset-0 border-4 border-primary rounded-full border-t-transparent animate-spin"></div>
-            <i class="fas fa-tools text-primary text-3xl animate-pulse"></i>
-        </div>
-        <h2 class="text-xl font-bold text-slate-800">جاري المعالجة...</h2>
-    </div>
+    <!-- Admin Hidden Trigger -->
+    <div onclick="promptAdmin()" class="fixed bottom-2 right-2 w-10 h-10 rounded-full bg-transparent z-[9999] cursor-pointer"></div>
 
-    <!-- MAIN WRAPPER -->
-    <div id="main-wrapper" class="relative w-full min-h-screen">
+    <!-- MAIN APP WRAPPER -->
+    <div id="main-wrapper">
         
-        <!-- ========================================== -->
-        <!-- SCREEN 1: Role Selection                   -->
-        <!-- ========================================== -->
-        <div id="screen-role-select" class="screen-view active app-container justify-center p-6 bg-slate-50">
-            <div class="text-center mb-12">
-                <div class="w-32 h-32 bg-gradient-to-tr from-primary to-blue-400 text-white rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-2xl shadow-blue-200 transform rotate-3">
-                    <i class="fas fa-hammer text-6xl transform -rotate-3"></i>
-                </div>
-                <h1 class="text-4xl font-black text-primary tracking-tight mb-2">حرايفي</h1>
-                <p class="text-slate-500 font-bold">منصة الخدمات المنزلية الأولى</p>
-            </div>
+        <div id="screen-splash" class="screen-view active bg-blue-600 justify-center items-center text-white">
+            <i class="fas fa-tools text-6xl mb-4 pin-bounce"></i>
+            <h1 class="text-4xl font-bold">حرايفي</h1>
+            <p class="mt-2 opacity-80">المنصة الشاملة للخدمات المنزلية</p>
+            <div class="mt-8 animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+        </div>
+
+        <div id="screen-role" class="screen-view p-6 justify-center">
+            <h2 class="text-2xl font-bold text-center mb-8">مرحباً بك في حرايفي!</h2>
+            <p class="text-center text-slate-500 mb-8">اختر نوع الحساب للمتابعة</p>
             
-            <div class="space-y-4 w-full relative z-10">
-                <button onclick="selectRole('customer')" class="w-full bg-white border-2 border-transparent hover:border-primary transition-all text-dark p-4 rounded-2xl flex items-center shadow-md">
-                    <div class="w-14 h-14 bg-blue-50 text-primary rounded-xl flex items-center justify-center text-2xl ml-4"><i class="fas fa-house-user"></i></div>
-                    <div class="text-right flex-1"><h3 class="font-bold text-lg">أنا زبون</h3><p class="text-xs text-slate-400 font-semibold">أبحث عن حرفي</p></div>
-                    <i class="fas fa-chevron-left text-slate-300"></i>
-                </button>
-
-                <button onclick="selectRole('handyman')" class="w-full bg-white border-2 border-transparent hover:border-secondary transition-all text-dark p-4 rounded-2xl flex items-center shadow-md">
-                    <div class="w-14 h-14 bg-orange-50 text-secondary rounded-xl flex items-center justify-center text-2xl ml-4"><i class="fas fa-toolbox"></i></div>
-                    <div class="text-right flex-1"><h3 class="font-bold text-lg">أنا حرفي</h3><p class="text-xs text-slate-400 font-semibold">تقديم خدماتي (دخول/تسجيل)</p></div>
-                    <i class="fas fa-chevron-left text-slate-300"></i>
-                </button>
-            </div>
-
-            <!-- Tiny Admin Icon -->
-            <button onclick="window.showScreen('screen-admin-login')" class="absolute bottom-4 right-4 text-slate-300 hover:text-slate-500 opacity-50 z-0 p-2 rounded-full">
-                <i class="fas fa-cog"></i>
-            </button>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- SCREEN 2: Admin Login                      -->
-        <!-- ========================================== -->
-        <div id="screen-admin-login" class="screen-view app-container justify-center p-8 bg-slate-900">
-            <button onclick="window.showScreen('screen-role-select')" class="absolute top-6 left-6 text-white w-10 h-10 bg-white/10 rounded-full flex items-center justify-center"><i class="fas fa-arrow-right"></i></button>
-            <div class="text-center mb-8">
-                <i class="fas fa-shield-alt text-6xl text-slate-400 mb-4"></i>
-                <h2 class="text-2xl font-black text-white">بوابة الإدارة العليا</h2>
-            </div>
-            <input type="password" id="admin-pwd" placeholder="كلمة المرور" class="w-full bg-slate-800 text-white py-4 px-4 rounded-xl mb-4 text-center border border-slate-700 outline-none focus:border-primary" dir="ltr">
-            <button onclick="verifyAdmin()" class="w-full bg-primary text-white font-black py-4 rounded-xl shadow-lg">دخول</button>
-        </div>
-
-        <!-- ========================================== -->
-        <!-- SCREEN: Artisan Phone Auth (OTP)           -->
-        <!-- ========================================== -->
-        <div id="screen-otp-auth" class="screen-view app-container bg-white">
-            <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                <button onclick="window.showScreen('screen-role-select')" class="text-slate-500 w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm"><i class="fas fa-arrow-right"></i></button>
-                <div class="font-black text-primary text-xl">تسجيل الدخول / إنشاء حساب</div>
-                <div class="w-10"></div>
-            </div>
-            <div class="p-6 flex-1 flex flex-col mt-10">
-                <div id="step-phone">
-                    <h2 class="text-2xl font-black text-dark mb-2">رقم الهاتف</h2>
-                    <p class="text-slate-500 font-bold text-sm mb-6">سيتم إرسال رمز التحقق (OTP) في رسالة قصيرة.</p>
-                    <div class="flex items-center bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 mb-6 focus-within:border-secondary">
-                        <span class="text-slate-400 font-bold mr-2 border-r pr-2" dir="ltr">+213</span>
-                        <input type="tel" id="auth-phone" placeholder="06XXXXXXXX" class="w-full bg-transparent outline-none font-bold font-mono text-lg text-left" dir="ltr">
-                    </div>
-                    <div id="recaptcha-container" class="mb-4"></div>
-                    <button onclick="sendOTP()" class="w-full bg-dark text-white font-black py-4 rounded-xl shadow-lg text-lg">إرسال الرمز</button>
-                </div>
-
-                <div id="step-verify" class="hidden">
-                    <h2 class="text-2xl font-black text-dark mb-2">أدخل الرمز</h2>
-                    <p class="text-slate-500 font-bold text-sm mb-6 text-center">تم الإرسال إلى <span id="display-sent-phone" dir="ltr" class="font-mono text-primary"></span></p>
-                    <input type="text" id="auth-otp" placeholder="------" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-4 mb-6 text-center font-bold font-mono text-3xl tracking-widest outline-none focus:border-secondary" maxlength="6" dir="ltr">
-                    <button onclick="verifyOTP()" class="w-full bg-primary text-white font-black py-4 rounded-xl shadow-lg text-lg">تحقق ودخول</button>
-                    <button onclick="resetOTP()" class="w-full text-slate-500 font-bold py-4 mt-2">إعادة إدخال الرقم</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- SCREEN: Artisan Registration & Docs -->
-        <div id="screen-handyman-register" class="screen-view app-container bg-white">
-            <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
-                <div class="font-black text-primary text-xl">استكمال الملف المهني</div>
-            </div>
-            <div class="p-6 flex-1 space-y-6 pb-20">
-                <div>
-                    <label class="block text-sm font-bold text-slate-700 mb-2">الاسم الكامل (كما في بطاقة التعريف)</label>
-                    <input type="text" id="reg-name" required class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-secondary font-bold">
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-slate-700 mb-2">التخصص الأساسي</label>
-                    <select id="reg-category" required class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 focus:border-secondary font-bold appearance-none">
-                        <option value="" disabled selected>اختر تخصصك...</option>
-                        <option value="سباكة">سباكة (Plomberie)</option>
-                        <option value="كهرباء">كهرباء (Électricité)</option>
-                        <option value="تكييف">تكييف (Climatisation)</option>
-                        <option value="تنظيف">تنظيف (Nettoyage)</option>
-                        <option value="طلاء">طلاء (Peinture)</option>
-                    </select>
-                </div>
-
-                <div class="space-y-4 pt-4 border-t border-slate-100">
-                    <p class="text-slate-500 font-bold text-sm">توثيق الحساب (يجب أن تكون الصور واضحة)</p>
-                    
-                    <div class="border-2 border-dashed border-slate-300 rounded-2xl relative overflow-hidden bg-slate-50 h-32 flex items-center justify-center">
-                        <input type="file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="window.previewDocFile(this, 'preview-id', 'icon-id')">
-                        <div id="icon-id" class="text-center">
-                            <i class="fas fa-id-card text-2xl text-primary mb-1 block"></i>
-                            <span class="font-bold text-xs text-slate-600">بطاقة التعريف</span>
-                        </div>
-                        <img id="preview-id" src="" class="absolute inset-0 w-full h-full object-cover hidden z-20 pointer-events-none">
-                    </div>
-
-                    <div class="border-2 border-dashed border-slate-300 rounded-2xl relative overflow-hidden bg-slate-50 h-32 flex items-center justify-center">
-                        <input type="file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="window.previewDocFile(this, 'preview-artisan', 'icon-artisan')">
-                        <div id="icon-artisan" class="text-center">
-                            <i class="fas fa-address-card text-2xl text-secondary mb-1 block"></i>
-                            <span class="font-bold text-xs text-slate-600">بطاقة الحرفي/سجل تجاري</span>
-                        </div>
-                        <img id="preview-artisan" src="" class="absolute inset-0 w-full h-full object-cover hidden z-20 pointer-events-none">
-                    </div>
-
-                    <div class="border-2 border-dashed border-slate-300 rounded-2xl relative overflow-hidden bg-slate-50 h-32 flex items-center justify-center">
-                        <input type="file" accept="image/*" capture="user" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="window.previewDocFile(this, 'preview-selfie', 'icon-selfie')">
-                        <div id="icon-selfie" class="text-center">
-                            <i class="fas fa-camera text-2xl text-success mb-1 block"></i>
-                            <span class="font-bold text-xs text-slate-600">صورة سيلفي</span>
-                        </div>
-                        <img id="preview-selfie" src="" class="absolute inset-0 w-full h-full object-cover hidden z-20 pointer-events-none">
-                    </div>
-                </div>
-                
-                <button onclick="submitRegistration()" class="w-full bg-dark text-white font-black py-4 rounded-xl shadow-lg text-lg">تأكيد ورفع البيانات للمنصة</button>
-            </div>
-        </div>
-
-        <!-- SCREEN: Artisan Dashboard -->
-        <div id="screen-handyman-dashboard" class="screen-view app-container bg-slate-100">
-            <div class="bg-dark text-white p-6 rounded-b-[2.5rem] shadow-xl relative z-10">
-                <div class="flex justify-between items-start mb-6">
+            <div class="space-y-4">
+                <button onclick="selectRole('customer')" class="w-full bg-blue-600 text-white p-4 rounded-xl shadow-lg flex items-center justify-between hover:bg-blue-700 transition">
                     <div class="flex items-center gap-4">
-                        <img id="dash-avatar" src="" class="w-14 h-14 rounded-full object-cover border-2 border-slate-600 bg-slate-800">
-                        <div>
-                            <h2 class="font-black text-xl" id="dash-name">...</h2>
-                            <div id="dash-status-container" class="mt-1"></div>
+                        <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-xl"></i>
+                        </div>
+                        <div class="text-right">
+                            <h3 class="font-bold text-lg">أنا زبون</h3>
+                            <p class="text-sm opacity-80">أبحث عن حرفي لخدمة</p>
                         </div>
                     </div>
-                    <button onclick="logout()" class="text-slate-400 hover:text-red-400 w-10 h-10"><i class="fas fa-power-off"></i></button>
-                </div>
-                
-                <div class="bg-gradient-to-r from-primary to-blue-600 p-6 rounded-3xl shadow-lg relative overflow-hidden border border-white/10">
-                    <p class="text-blue-100 text-sm font-bold mb-1">الرصيد المتاح للخصم (DZD)</p>
-                    <span id="dash-wallet" class="text-4xl font-black block mb-4">0.00</span>
-                    <button onclick="window.paySubscription()" class="bg-white text-primary font-black px-4 py-2.5 rounded-xl w-full flex justify-center items-center gap-2">
-                        <i class="fas fa-plus"></i> شحن المحفظة (Chargily)
-                    </button>
-                </div>
-            </div>
+                    <i class="fas fa-chevron-left"></i>
+                </button>
 
-            <div class="px-5 mt-6 space-y-4 pb-20">
-                <div id="sys-msg-container"></div> <!-- Alerts for Ban, Pause, etc -->
-                
-                <h3 class="font-black text-dark text-lg border-b border-slate-200 pb-2 mb-4">طلبات الزبائن والإشعارات</h3>
-                <div id="artisan-requests-list" class="space-y-3">
-                    <div class="text-center py-6 text-slate-400 font-bold text-sm">لا توجد طلبات بعد. ابق متصلاً!</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- SCREEN: Chargily Payment Simulator -->
-        <div id="screen-handyman-pay" class="screen-view app-container bg-slate-900">
-            <div class="p-6 flex justify-between items-center border-b border-white/10">
-                <button onclick="window.showScreen('screen-handyman-dashboard')" class="text-white w-8 h-8"><i class="fas fa-arrow-right"></i></button>
-                <div class="font-bold text-white"><i class="fas fa-lock text-success mr-2"></i> دفع آمن</div>
-                <img src="https://chargily.com/business/assets/img/logo.svg" class="h-6 filter brightness-0 invert">
-            </div>
-            <div class="p-6 flex-1 flex flex-col justify-center">
-                <div class="text-center mb-6">
-                    <h2 class="text-3xl font-black text-white mb-2">شحن المحفظة</h2>
-                    <p class="text-slate-400 font-bold text-sm">سيتم خصم 100 دج فقط عند كل اتصال ناجح.</p>
-                </div>
-                
-                <div class="bg-white p-6 rounded-3xl shadow-xl mt-auto text-center">
-                    <div class="text-4xl font-black text-dark mb-4">500.00 <span class="text-xl text-slate-500">DZD</span></div>
-                    
-                    <a href="javascript:void(0)" onclick="window.open(window.chargilyConfig.hostedLink, '_blank')" class="w-full bg-slate-900 text-white font-black py-4 rounded-xl shadow-lg mb-4 flex items-center justify-center gap-3">
-                        <img src="https://chargily.com/business/assets/img/logo.svg" class="h-4 filter brightness-0 invert"> 
-                        البطاقة الذهبية / CIB
-                    </a>
-                    
-                    <div class="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-100">
-                        <div class="col-span-2 text-[10px] text-slate-400 font-bold">أزرار محاكاة الـ Webhook</div>
-                        <button onclick="window.confirmSimulatedPayment(true)" class="bg-green-100 text-green-700 font-bold py-3 rounded-xl"><i class="fas fa-check"></i> نجاح</button>
-                        <button onclick="window.confirmSimulatedPayment(false)" class="bg-red-100 text-red-700 font-bold py-3 rounded-xl"><i class="fas fa-times"></i> فشل</button>
+                <button onclick="selectRole('artisan')" class="w-full bg-slate-800 text-white p-4 rounded-xl shadow-lg flex items-center justify-between hover:bg-slate-900 transition">
+                    <div class="flex items-center gap-4">
+                        <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                            <i class="fas fa-hard-hat text-xl"></i>
+                        </div>
+                        <div class="text-right">
+                            <h3 class="font-bold text-lg">أنا حرفي</h3>
+                            <p class="text-sm opacity-80">أريد تقديم خدماتي</p>
+                        </div>
                     </div>
-                </div>
+                    <i class="fas fa-chevron-left"></i>
+                </button>
             </div>
         </div>
 
+        <div id="screen-otp" class="screen-view p-6 bg-white">
+            <button onclick="showScreen('screen-role')" class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center mb-6">
+                <i class="fas fa-arrow-right"></i>
+            </button>
+            
+            <h2 class="text-2xl font-bold mb-2">تسجيل الدخول / إنشاء حساب</h2>
+            <p class="text-slate-500 mb-8">أدخل رقم هاتفك للمتابعة</p>
+            
+            <div id="otp-step-1">
+                <div class="flex items-center border-2 border-slate-200 rounded-xl px-4 py-3 mb-6 focus-within:border-blue-600 transition">
+                    <span class="text-slate-500 font-bold border-l pl-3 ml-3" dir="ltr">+213</span>
+                    <input type="tel" id="phone-input" placeholder="670 12 34 56" class="w-full outline-none text-lg font-bold" dir="ltr">
+                </div>
+                <div id="recaptcha-container" class="mb-4 flex justify-center"></div>
+                <button onclick="sendOTP()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg">إرسال الرمز</button>
+                <p class="text-xs text-center text-slate-400 mt-4">ملاحظة: إذا واجهت مشكلة، استخدم رقم اختباري من لوحة تحكم Firebase.</p>
+            </div>
 
-        <!-- ========================================== -->
-        <!-- SCREEN: Customer Home                      -->
-        <!-- ========================================== -->
-        <div id="screen-customer-home" class="screen-view app-container bg-slate-50">
-            <div class="bg-primary text-white p-6 rounded-b-[2rem] shadow-lg relative z-10">
+            <div id="otp-step-2" class="hidden">
+                <p class="text-center text-slate-600 mb-4">تم إرسال الرمز إلى هاتفك</p>
+                <input type="text" id="code-input" placeholder="------" class="w-full text-center text-3xl tracking-[1em] font-bold border-b-2 border-blue-600 py-4 mb-8 outline-none bg-transparent" maxlength="6" dir="ltr">
+                <button onclick="verifyOTP()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg">تحقق ودخول</button>
+                <button onclick="resetOTP()" class="w-full text-blue-600 font-bold py-4 mt-2">تعديل الرقم</button>
+            </div>
+        </div>
+
+        <div id="screen-artisan-docs" class="screen-view p-6 bg-white">
+            <h2 class="text-2xl font-bold mb-2">استكمال الملف المهني</h2>
+            <p class="text-slate-500 mb-6">يرجى رفع الوثائق لتفعيل حسابك</p>
+            
+            <div class="space-y-4 mb-8">
+                <input type="text" id="artisan-name" placeholder="الاسم الكامل" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-blue-600">
+                
+                <select id="artisan-job" class="w-full border-2 border-slate-200 rounded-xl px-4 py-3 outline-none focus:border-blue-600 bg-white">
+                    <option value="">اختر المهنة...</option>
+                    <option value="plumber">ترصيص وسباكة</option>
+                    <option value="electrician">كهرباء معمارية</option>
+                    <option value="cleaner">تنظيف</option>
+                    <option value="painter">دهان وطلاء</option>
+                </select>
+
+                <div class="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center relative overflow-hidden">
+                    <input type="file" accept="image/*" onchange="previewDocFile(this, 'preview-id')" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                    <i class="fas fa-id-card text-3xl text-slate-400 mb-2"></i>
+                    <p class="text-sm font-bold text-slate-600">صورة بطاقة التعريف</p>
+                    <img id="preview-id" class="hidden mt-2 w-full h-32 object-cover rounded-lg relative z-0">
+                </div>
+
+                <div class="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center relative overflow-hidden">
+                    <input type="file" accept="image/*" onchange="previewDocFile(this, 'preview-selfie')" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                    <i class="fas fa-camera text-3xl text-slate-400 mb-2"></i>
+                    <p class="text-sm font-bold text-slate-600">صورة شخصية (سيلفي)</p>
+                    <img id="preview-selfie" class="hidden mt-2 w-full h-32 object-cover rounded-lg relative z-0">
+                </div>
+            </div>
+            
+            <button onclick="submitDocs()" class="w-full bg-slate-800 text-white font-bold py-4 rounded-xl shadow-lg">حفظ ومتابعة</button>
+        </div>
+
+        <div id="screen-chargily-sim" class="screen-view p-6 bg-slate-50 justify-center">
+            <div class="bg-white rounded-2xl shadow-xl p-6 text-center border-t-4 border-green-500">
+                <img src="https://chargily.com/wp-content/uploads/2023/04/Chargily-Pay-Logo-Dark.png" alt="Chargily" class="h-10 mx-auto mb-6" onerror="this.src='https://placehold.co/150x50/white/blue?text=Chargily+Pay'">
+                <h3 class="text-xl font-bold mb-2">تفعيل الاشتراك الشهري</h3>
+                <p class="text-slate-500 mb-6">رصيد 500 دج لاستقبال الطلبات</p>
+                
+                <div class="bg-slate-100 p-4 rounded-xl mb-6 font-mono text-lg font-bold">
+                    500.00 DZD
+                </div>
+                
+                <button onclick="simulatePayment()" class="w-full bg-green-500 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-green-600 transition mb-3">
+                    <i class="fas fa-credit-card ml-2"></i> دفع عبر البطاقة الذهبية/CIB
+                </button>
+                <button onclick="showScreen('screen-artisan-dash')" class="w-full text-slate-500 font-bold py-2">
+                    تخطي مؤقتاً
+                </button>
+            </div>
+        </div>
+
+        <div id="screen-artisan-dash" class="screen-view p-0 bg-slate-50">
+            <div class="bg-slate-800 text-white p-6 rounded-b-3xl shadow-lg">
                 <div class="flex justify-between items-center mb-6">
-                    <div>
-                        <h2 class="text-2xl font-black">مرحباً بك 👋</h2>
-                        <p class="text-sm text-blue-100 mt-1 font-semibold">ابحث عن أفضل الحرفيين حولك</p>
-                    </div>
-                    <button onclick="logout()" class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center"><i class="fas fa-sign-out-alt"></i></button>
+                    <h2 class="text-xl font-bold" id="dash-artisan-name">لوحة التحكم</h2>
+                    <div id="dash-status-badge" class="px-3 py-1 bg-yellow-500 text-slate-900 rounded-full text-xs font-bold">قيد المراجعة</div>
                 </div>
-                <div class="relative shadow-md rounded-2xl">
-                    <i class="fas fa-search absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400"></i>
-                    <input type="text" id="searchInput" placeholder="ابحث عن حرفي أو تخصص..." class="w-full bg-white text-dark py-4 pr-12 pl-4 rounded-2xl outline-none font-bold" onkeyup="filterArtisans()">
+                <div class="bg-white/10 rounded-xl p-4 backdrop-blur-sm">
+                    <p class="text-sm opacity-80 mb-1">رصيد المحفظة</p>
+                    <div class="text-3xl font-bold text-green-400" id="dash-wallet-balance">0.00 <span class="text-lg font-normal">د.ج</span></div>
                 </div>
-            </div>
-
-            <div class="px-5 py-6">
-                <div class="flex justify-between items-end mb-4">
-                    <h3 class="font-black text-lg text-slate-800">التصنيفات السريعة</h3>
-                    <button onclick="window.showScreen('screen-customer-map')" class="text-primary text-sm font-black flex items-center gap-1 bg-blue-50 px-4 py-2 rounded-xl">
-                        <i class="fas fa-map-marked-alt"></i> الخريطة
-                    </button>
-                </div>
-                <div class="flex overflow-x-auto gap-3 hide-scroll pb-2">
-                    <button onclick="filterByCategory('الكل')" class="cat-btn bg-primary text-white px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap">الكل</button>
-                    <button onclick="filterByCategory('سباكة')" class="cat-btn bg-white text-slate-600 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap shadow-sm"><i class="fas fa-faucet text-primary"></i> سباكة</button>
-                    <button onclick="filterByCategory('كهرباء')" class="cat-btn bg-white text-slate-600 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap shadow-sm"><i class="fas fa-bolt text-secondary"></i> كهرباء</button>
-                    <button onclick="filterByCategory('تكييف')" class="cat-btn bg-white text-slate-600 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap shadow-sm"><i class="fas fa-snowflake text-info"></i> تكييف</button>
-                    <button onclick="filterByCategory('تنظيف')" class="cat-btn bg-white text-slate-600 px-5 py-2.5 rounded-xl font-bold text-sm whitespace-nowrap shadow-sm"><i class="fas fa-broom text-success"></i> تنظيف</button>
-                </div>
-            </div>
-
-            <div class="px-5 flex-1 pb-24">
-                <h3 class="font-black text-lg text-slate-800 mb-4">الحرفيين المتاحين الآن</h3>
-                <div id="customer-artisans-list" class="space-y-4"></div>
-            </div>
-        </div>
-
-        <!-- SCREEN: Customer Map -->
-        <div id="screen-customer-map" class="screen-view app-container bg-slate-200">
-            <div class="absolute top-6 left-4 right-4 z-10 flex justify-between items-center pointer-events-none">
-                <button onclick="window.showScreen('screen-customer-home')" class="w-12 h-12 bg-white rounded-full shadow-xl flex items-center justify-center text-dark pointer-events-auto text-xl"><i class="fas fa-arrow-right"></i></button>
-                <div class="bg-white px-5 py-2.5 rounded-full shadow-xl font-black text-primary text-sm flex items-center gap-2 border-2 border-primary/20 pointer-events-auto">
-                    <i class="fas fa-location-dot"></i> خريطة الحرفيين
-                </div>
-            </div>
-            <div class="flex-1 w-full bg-blue-50 relative overflow-hidden map-pattern" id="map-container-customer"></div>
-        </div>
-
-        <!-- SCREEN: Artisan Profile (Customer View) -->
-        <div id="screen-artisan-profile" class="screen-view app-container bg-slate-50 overflow-y-auto">
-            <div class="h-56 bg-gradient-to-br from-primary to-slate-900 relative rounded-b-[3rem] shadow-lg">
-                <button onclick="window.showScreen('screen-customer-home')" class="absolute top-6 right-6 w-10 h-10 bg-white/20 text-white rounded-full flex items-center justify-center backdrop-blur-md z-10"><i class="fas fa-arrow-right"></i></button>
             </div>
             
-            <div class="px-6 relative -mt-20 text-center z-10">
-                <img id="profile-img" src="" class="w-32 h-32 rounded-full border-4 border-white shadow-xl mx-auto bg-white object-cover">
-                <h2 id="profile-name" class="text-2xl font-black mt-3 text-dark flex justify-center items-center gap-2"></h2>
-                <p id="profile-category" class="text-primary font-bold mt-1 text-sm bg-blue-50 inline-block px-3 py-1 rounded-full"></p>
-            </div>
-
-            <div class="px-6 py-6 flex-1">
-                <!-- Contact Section (Pay Per Lead) -->
-                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 mb-6">
-                    <h3 class="font-black text-lg mb-4 text-slate-800">بيانات التواصل</h3>
-                    
-                    <div class="flex items-center gap-4 mb-4">
-                        <div class="w-12 h-12 bg-blue-50 text-primary rounded-xl flex items-center justify-center text-xl"><i class="fas fa-phone"></i></div>
-                        <div>
-                            <p class="text-xs text-slate-400 font-bold">الهاتف</p>
-                            <p id="profile-phone" class="font-black text-xl text-slate-800 tracking-widest" dir="ltr">06** *** ***</p>
-                        </div>
+            <div class="p-6">
+                <h3 class="font-bold text-lg mb-4 text-slate-700">طلبات الزبائن الأخيرة</h3>
+                <div id="dash-issues-list" class="space-y-4">
+                    <!-- Issues dynamically loaded here -->
+                    <div class="text-center text-slate-400 py-8">
+                        <i class="fas fa-inbox text-4xl mb-3 opacity-50"></i>
+                        <p>لا توجد طلبات حالية</p>
                     </div>
-                    
-                    <button id="reveal-phone-btn" class="w-full bg-primary hover:bg-blue-700 text-white py-4 rounded-xl font-black shadow-lg transition-all flex items-center justify-center gap-2">
-                        <i class="fas fa-unlock"></i> إظهار الرقم (اتصال آمن)
-                    </button>
-                </div>
-
-                <!-- Media Upload Section (Hidden until phone revealed) -->
-                <div id="media-upload-section" class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hidden">
-                    <h3 class="font-black text-lg mb-2 text-slate-800"><i class="fas fa-camera text-primary"></i> أرسل مشكلتك للحرفي</h3>
-                    <p class="text-xs text-slate-500 font-bold mb-4">ارفق صورة توضح العطل ليتمكن الحرفي من تقييم العمل.</p>
-                    
-                    <textarea id="issue-desc" placeholder="صف المشكلة باختصار..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 mb-3 text-sm font-bold outline-none focus:border-primary"></textarea>
-                    
-                    <div class="border-2 border-dashed border-slate-300 rounded-xl relative overflow-hidden bg-slate-50 h-24 flex items-center justify-center mb-3">
-                        <input type="file" accept="image/*,video/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" onchange="window.previewDocFile(this, 'preview-issue', 'icon-issue')">
-                        <div id="icon-issue" class="text-center">
-                            <i class="fas fa-cloud-upload-alt text-2xl text-slate-400 mb-1 block"></i>
-                            <span class="font-bold text-xs text-slate-500">التقط صورة/فيديو صغير</span>
-                        </div>
-                        <img id="preview-issue" src="" class="absolute inset-0 w-full h-full object-cover hidden z-20 pointer-events-none">
-                    </div>
-                    
-                    <button onclick="sendIssueToArtisan()" class="w-full bg-secondary text-white font-black py-3 rounded-xl shadow-md"><i class="fas fa-paper-plane"></i> إرسال الطلب</button>
                 </div>
             </div>
         </div>
 
-        <!-- ========================================== -->
-        <!-- SCREEN: Admin Dashboard System             -->
-        <!-- ========================================== -->
-        <div id="screen-admin-dashboard" class="screen-view admin-container">
-            <!-- Header -->
-            <div class="bg-dark text-white p-4 flex justify-between items-center shadow-lg sticky top-0 z-50">
-                <h2 class="font-black text-lg flex items-center gap-2"><i class="fas fa-shield-halved text-secondary"></i> الإدارة المركزية (Super Admin)</h2>
-                <button onclick="logout()" class="bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg text-sm font-bold"><i class="fas fa-sign-out-alt"></i></button>
+        <div id="screen-customer-home" class="screen-view p-0 bg-slate-50">
+            <div class="bg-blue-600 text-white p-6 pt-10 rounded-b-3xl shadow-lg">
+                <h2 class="text-2xl font-bold mb-6">ما هي الخدمة التي تحتاجها؟</h2>
+                <div class="relative">
+                    <input type="text" placeholder="ابحث عن حرفي..." class="w-full bg-white/20 text-white placeholder-white/70 px-5 py-4 rounded-xl outline-none focus:bg-white/30 backdrop-blur-sm pr-12">
+                    <i class="fas fa-search absolute right-4 top-1/2 transform -translate-y-1/2 text-white/70"></i>
+                </div>
             </div>
             
-            <!-- Tabs -->
-            <div class="flex overflow-x-auto bg-white shadow-sm border-b sticky top-[60px] z-40 hide-scroll text-sm">
-                <button class="admin-tab flex-none px-5 py-3 font-black text-primary border-b-4 border-primary" onclick="switchAdminTab('map')"><i class="fas fa-map-marked-alt"></i> الخريطة الحية (t=0)</button>
-                <button class="admin-tab flex-none px-5 py-3 font-bold text-slate-500 border-b-4 border-transparent" onclick="switchAdminTab('users')"><i class="fas fa-users-cog"></i> إدارة الحرفيين</button>
-                <button class="admin-tab flex-none px-5 py-3 font-bold text-slate-500 border-b-4 border-transparent" onclick="switchAdminTab('verify')"><i class="fas fa-id-card"></i> التوثيق والمراجعة</button>
-                <button class="admin-tab flex-none px-5 py-3 font-bold text-slate-500 border-b-4 border-transparent" onclick="switchAdminTab('notify')"><i class="fas fa-bell"></i> الإشعارات</button>
+            <div class="p-6">
+                <h3 class="font-bold text-lg mb-4 text-slate-700">الخدمات السريعة</h3>
+                <div class="grid grid-cols-2 gap-4 mb-8">
+                    <div onclick="showMap('plumber')" class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition">
+                        <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center"><i class="fas fa-wrench text-xl"></i></div>
+                        <span class="font-bold text-slate-700">ترصيص</span>
+                    </div>
+                    <div onclick="showMap('electrician')" class="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col items-center justify-center gap-2 cursor-pointer active:scale-95 transition">
+                        <div class="w-12 h-12 bg-yellow-50 text-yellow-500 rounded-full flex items-center justify-center"><i class="fas fa-bolt text-xl"></i></div>
+                        <span class="font-bold text-slate-700">كهرباء</span>
+                    </div>
+                </div>
             </div>
+        </div>
 
-            <div class="p-4 md:p-6 h-[calc(100vh-110px)] overflow-y-auto">
+        <div id="screen-customer-map" class="screen-view p-0">
+            <div class="absolute top-0 left-0 right-0 p-4 z-20 flex items-center gap-4 bg-gradient-to-b from-black/50 to-transparent">
+                <button onclick="showScreen('screen-customer-home')" class="w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-800">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                <h2 class="text-white font-bold text-lg drop-shadow-md">الحرفيين المتاحين</h2>
+            </div>
+            
+            <!-- Mock Map Area -->
+            <div class="map-pattern w-full h-full relative" id="customer-map-area">
+                <!-- Pins will be injected here -->
+            </div>
+        </div>
+
+        <div id="screen-artisan-profile" class="screen-view p-0 bg-slate-50">
+            <button onclick="showScreen('screen-customer-map')" class="absolute top-4 right-4 w-10 h-10 bg-white/50 backdrop-blur-md rounded-full shadow-lg flex items-center justify-center text-slate-800 z-20">
+                <i class="fas fa-arrow-right"></i>
+            </button>
+            
+            <div class="h-48 bg-slate-800 w-full relative">
+                <img id="profile-cover" src="https://placehold.co/400x200/1e293b/ffffff?text=Hraifi" class="w-full h-full object-cover opacity-50">
+            </div>
+            
+            <div class="px-6 relative -top-12">
+                <div class="w-24 h-24 bg-white rounded-2xl shadow-xl p-1 mb-4 mx-auto relative">
+                    <img id="profile-image" src="https://placehold.co/100/e2e8f0/475569?text=Pic" class="w-full h-full object-cover rounded-xl">
+                    <div class="absolute -bottom-2 -right-2 w-6 h-6 bg-green-500 border-2 border-white rounded-full flex items-center justify-center text-white text-xs">
+                        <i class="fas fa-check"></i>
+                    </div>
+                </div>
                 
-                <!-- Tab: LIVE MAP t=0 -->
-                <div id="admin-tab-map" class="admin-content block h-full">
-                    <div class="bg-white p-4 rounded-xl shadow-sm mb-4 flex gap-4">
-                        <div class="font-bold text-sm"><span class="w-3 h-3 inline-block rounded-full bg-success"></span> نشط</div>
-                        <div class="font-bold text-sm"><span class="w-3 h-3 inline-block rounded-full bg-paused"></span> استراحة</div>
-                        <div class="font-bold text-sm"><span class="w-3 h-3 inline-block rounded-full bg-frozen"></span> مجمد</div>
+                <div class="text-center mb-6">
+                    <h2 class="text-2xl font-bold text-slate-800" id="profile-name">اسم الحرفي</h2>
+                    <p class="text-slate-500 font-bold" id="profile-job">المهنة</p>
+                </div>
+                
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-6 text-center">
+                    <p class="text-slate-500 mb-2">رقم الهاتف للاتصال</p>
+                    <div id="phone-display" class="text-2xl font-bold tracking-widest text-slate-800 mb-4" dir="ltr">0661 •• •• ••</div>
+                    <button id="btn-reveal-contact" onclick="revealContact()" class="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-blue-700 transition">
+                        <i class="fas fa-phone-alt ml-2"></i> إظهار الرقم والاتصال
+                    </button>
+                    <p class="text-xs text-slate-400 mt-3">يتم تطبيق رسوم المنصة على الحرفي عند الاتصال.</p>
+                </div>
+
+                <!-- Report Issue Section (Visible after reveal) -->
+                <div id="issue-report-section" class="hidden bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-8 text-center border-t-4 border-blue-500">
+                    <h3 class="font-bold text-slate-700 mb-2">إرسال صورة المشكل للحرفي</h3>
+                    <div class="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center relative overflow-hidden mb-4">
+                        <input type="file" accept="image/*" onchange="previewDocFile(this, 'preview-issue')" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" id="issue-image-input">
+                        <i class="fas fa-camera text-3xl text-slate-400 mb-2"></i>
+                        <p class="text-sm font-bold text-slate-600">التقط صورة</p>
+                        <img id="preview-issue" class="hidden mt-2 w-full h-32 object-cover rounded-lg relative z-0">
                     </div>
-                    <div class="w-full h-[600px] bg-slate-200 rounded-2xl border-4 border-white shadow-lg relative overflow-hidden map-pattern" id="admin-live-map">
-                        <!-- Pins Injected Here via JS -->
+                    <button onclick="sendIssueToArtisan()" class="w-full bg-slate-800 text-white font-bold py-3 rounded-xl shadow-md">إرسال المشكل</button>
+                </div>
+            </div>
+        </div>
+    </div> <!-- END MAIN APP WRAPPER -->
+
+    <div id="admin-wrapper">
+        <div class="flex h-full">
+            <!-- Sidebar -->
+            <div class="w-64 bg-slate-900 text-white flex flex-col">
+                <div class="p-6 bg-slate-950 flex items-center justify-between">
+                    <h1 class="font-bold text-xl"><i class="fas fa-shield-alt text-blue-500 ml-2"></i> حرايفي أدمن</h1>
+                    <button onclick="closeAdmin()" class="text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="p-4 space-y-2 flex-1">
+                    <button onclick="showAdminTab('map')" class="w-full text-right p-3 rounded-lg bg-blue-600 text-white font-bold"><i class="fas fa-map-marked-alt w-6"></i> الخريطة الحية (t=0)</button>
+                    <button onclick="showAdminTab('verification')" class="w-full text-right p-3 rounded-lg text-slate-300 hover:bg-slate-800 transition"><i class="fas fa-user-check w-6"></i> مركز التوثيق</button>
+                    <button onclick="showAdminTab('finance')" class="w-full text-right p-3 rounded-lg text-slate-300 hover:bg-slate-800 transition"><i class="fas fa-wallet w-6"></i> الإدارة المالية</button>
+                </div>
+            </div>
+            
+            <!-- Content -->
+            <div class="flex-1 flex flex-col h-full bg-slate-100 overflow-hidden">
+                <!-- Topbar -->
+                <div class="h-16 bg-white shadow-sm flex items-center px-6 justify-between border-b border-slate-200">
+                    <h2 id="admin-title" class="font-bold text-lg text-slate-700">الخريطة الحية</h2>
+                    <div class="flex gap-4">
+                        <div class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold border border-green-200">متصل الآن: <span id="online-count">0</span></div>
+                    </div>
+                </div>
+                
+                <!-- Admin Map Tab -->
+                <div id="admin-tab-map" class="flex-1 relative flex">
+                    <div class="flex-1 map-pattern" id="admin-map-area">
+                        <!-- Admin Map Pins injected here -->
+                    </div>
+                    <!-- Right Panel for Details -->
+                    <div id="admin-side-panel" class="w-80 bg-white border-r border-slate-200 p-6 overflow-y-auto transform translate-x-full transition-transform duration-300 absolute left-0 top-0 bottom-0 shadow-2xl z-20">
+                        <!-- Content injected via JS -->
                     </div>
                 </div>
 
-                <!-- Tab: Users Management (Pause, Gelée, Activée, Remove) -->
-                <div id="admin-tab-users" class="admin-content hidden">
-                    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <!-- Admin Verification Tab -->
+                <div id="admin-tab-verification" class="flex-1 hidden p-6 overflow-y-auto">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <h3 class="font-bold text-lg mb-4 border-b pb-2">طلبات التسجيل المعلقة</h3>
                         <div class="overflow-x-auto">
-                            <table class="w-full text-right text-sm">
-                                <thead class="bg-slate-50 text-slate-500 font-bold border-b">
+                            <table class="w-full text-right">
+                                <thead class="bg-slate-50 text-slate-500">
                                     <tr>
-                                        <th class="p-3">الحرفي</th>
-                                        <th class="p-3">التخصص</th>
-                                        <th class="p-3">الرصيد</th>
-                                        <th class="p-3">الحالة</th>
-                                        <th class="p-3 text-center">إجراءات التحكم</th>
+                                        <th class="p-3">الاسم</th>
+                                        <th class="p-3">المهنة</th>
+                                        <th class="p-3">الهاتف</th>
+                                        <th class="p-3">الإجراء</th>
                                     </tr>
                                 </thead>
-                                <tbody id="admin-users-table" class="divide-y font-semibold"></tbody>
+                                <tbody id="admin-pending-table" class="divide-y divide-slate-100">
+                                    <!-- Dynamic rows -->
+                                </tbody>
                             </table>
                         </div>
                     </div>
                 </div>
 
-                <!-- Tab: Verification -->
-                <div id="admin-tab-verify" class="admin-content hidden">
-                    <div id="admin-pending-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-                </div>
-
-                <!-- Tab: Notifications -->
-                <div id="admin-tab-notify" class="admin-content hidden max-w-2xl mx-auto bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <h3 class="font-black text-lg mb-4">إرسال إشعار للحرفيين</h3>
-                    <select id="notify-target" class="w-full bg-slate-50 border p-3 rounded-xl mb-4 font-bold">
-                        <option value="ALL">إلى جميع الحرفيين</option>
-                        <!-- Dynamic options added via JS -->
-                    </select>
-                    <textarea id="notify-msg" placeholder="اكتب رسالة الإشعار هنا..." class="w-full bg-slate-50 border p-3 rounded-xl mb-4 font-bold h-32"></textarea>
-                    <button onclick="adminSendNotification()" class="w-full bg-primary text-white font-black py-3 rounded-xl"><i class="fas fa-paper-plane"></i> إرسال</button>
-                </div>
-
-            </div>
-        </div>
-
-        <!-- Admin Overlay Modal (For clicking a pin on the map) -->
-        <div id="admin-artisan-modal" class="fixed inset-0 bg-dark/80 z-[100] hidden items-center justify-center p-4">
-            <div class="bg-white w-full max-w-md rounded-3xl overflow-hidden shadow-2xl relative">
-                <button onclick="document.getElementById('admin-artisan-modal').classList.replace('flex','hidden')" class="absolute top-4 right-4 bg-slate-100 w-8 h-8 rounded-full text-slate-500 z-10"><i class="fas fa-times"></i></button>
-                
-                <div class="p-6 text-center border-b relative">
-                    <img id="modal-img" src="" class="w-24 h-24 rounded-full border-4 border-white shadow-md mx-auto object-cover bg-slate-100">
-                    <h3 id="modal-name" class="font-black text-xl mt-2 text-dark"></h3>
-                    <div id="modal-cat" class="text-primary font-bold text-sm"></div>
-                    <div id="modal-status-badge" class="mt-2"></div>
-                </div>
-                
-                <div class="p-6 space-y-4">
-                    <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border">
-                        <span class="font-bold text-slate-500">رقم الهاتف:</span>
-                        <a id="modal-phone-link" href="#" class="font-black text-primary text-lg font-mono" dir="ltr"></a>
-                    </div>
-                    <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl border">
-                        <span class="font-bold text-slate-500">الرصيد المالي:</span>
-                        <span id="modal-wallet" class="font-black text-dark text-lg font-mono"></span>
-                    </div>
-                    
-                    <div class="grid grid-cols-2 gap-2 mt-4">
-                        <button id="modal-btn-notify" class="bg-blue-100 text-primary py-2 rounded-xl font-bold"><i class="fas fa-bell"></i> إرسال رسالة</button>
-                        <button id="modal-btn-call" class="bg-green-100 text-green-700 py-2 rounded-xl font-bold"><i class="fas fa-phone"></i> اتصال مباشر</button>
+                <!-- Admin Finance Tab -->
+                <div id="admin-tab-finance" class="flex-1 hidden p-6 overflow-y-auto">
+                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <h3 class="font-bold text-lg mb-4 border-b pb-2">إدارة أرصدة الحرفيين</h3>
+                        <div class="flex gap-4 mb-6">
+                            <input type="text" id="admin-fund-phone" placeholder="رقم هاتف الحرفي" class="border p-2 rounded flex-1">
+                            <input type="number" id="admin-fund-amount" placeholder="المبلغ (دج)" class="border p-2 rounded w-32">
+                            <button onclick="adminAddFunds()" class="bg-blue-600 text-white px-4 py-2 rounded font-bold">شحن الرصيد</button>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-
-    </div>
+    </div> <!-- END ADMIN WRAPPER -->
 
     <script>
-        // --- Configurations ---
-        const MY_OWN_FIREBASE_CONFIG = {
-            apiKey: "AIzaSyA-ym_XLB2XXXFdRcNYzzfiGlaypoMmQ0U",
-            authDomain: "indrive-95741.firebaseapp.com",
-            databaseURL: "https://indrive-95741-default-rtdb.europe-west1.firebasedatabase.app",
-            projectId: "indrive-95741",
-            storageBucket: "indrive-95741.firebasestorage.app",
-            messagingSenderId: "259781133250",
-            appId: "1:259781133250:web:920afd93f3024171afcc5b",
-            measurementId: "G-C77GE0Y1WK"
-        };
+        // Global Error Handling to prevent silent failures
+        window.addEventListener('error', function(e) {
+            console.error("Global JS Error:", e.error);
+        });
 
-        window.chargilyConfig = {
-            publicKey: 'live_pk_G4Sc6WY30YJsR0zPtwPKzc5ZCidkvLMeLKS2VS7D',
-            secretKey: 'live_sk_bZusRBkaoFlr7sxkkAsPkpT271EwKfJT9n5NvAHr',
-            hostedLink: 'http://pay.chargily.com/payment-links/01kw0gf98cydybfb0s1dnj6gmb',
-            webhookUrl: 'https://hakmi.github.io/HRAIFI/api/webhook/',
-            ccpAccount: '00799999000467087604',
-            accountName: 'HAKEMI ABDELKRIM',
-            amount: 500.00
-        };
-
-        // --- Init Firebase ---
-        if (!firebase.apps.length) firebase.initializeApp(MY_OWN_FIREBASE_CONFIG);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
-        auth.useDeviceLanguage();
-
-        // --- Global State ---
-        let currentUser = null;
-        let userRole = null; 
-        let confirmationResult = null; // for OTP
-        let allArtisans = []; 
-        let activeArtisanViewing = null;
-        let unsubUser = null;
-        let unsubAdmin = null;
-        let unsubRequests = null;
-
-        // Base Algerian coords for mock map mapping
-        const BASE_LAT = 36.75, BASE_LNG = 3.04; 
-
-        // --- UI Utils ---
-        function showLoader(show) { document.getElementById('global-loader').style.display = show ? 'flex' : 'none'; }
-        
+        // Toast System
         window.showToast = function(msg, type = 'info') {
             const container = document.getElementById('toast-container');
             const t = document.createElement('div');
-            const bg = type==='success'?'bg-success':type==='error'?'bg-danger':'bg-slate-800';
-            const ic = type==='success'?'fa-check-circle':type==='error'?'fa-exclamation-circle':'fa-info-circle';
-            t.className = `${bg} text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-3 transition-all duration-300 font-bold z-[10000]`;
-            t.innerHTML = `<i class="fas ${ic} text-xl"></i> <span class="flex-1">${msg}</span>`;
+            const bg = type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-slate-800';
+            const ic = type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle';
+            
+            t.className = `${bg} text-white px-5 py-4 rounded-xl shadow-2xl flex items-center gap-3 toast-enter pointer-events-auto`;
+            t.innerHTML = `<i class="fas ${ic} text-xl"></i> <span class="flex-1 font-bold text-sm">${msg}</span>`;
+            
             container.appendChild(t);
-            setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(),300); }, 3500);
+            setTimeout(() => {
+                t.classList.replace('toast-enter', 'toast-exit');
+                setTimeout(() => t.remove(), 400);
+            }, 4000);
         };
 
+        // Navigation System (Native Feel)
         window.showScreen = function(id) {
-            document.querySelectorAll('.screen-view').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.screen-view').forEach(el => {
+                el.classList.remove('active');
+            });
             const screen = document.getElementById(id);
             if(screen) {
                 screen.classList.add('active');
-                window.scrollTo(0,0);
+                screen.scrollTop = 0; // Reset scroll for independent feeling
             }
         };
 
-        async function selectRole(role) {
-            userRole = role;
-            if (role === 'customer') {
-                showLoader(true);
-                try {
-                    const cred = await auth.signInAnonymously();
-                    currentUser = cred.user;
-                    loadCustomerHome();
-                } catch(e) { window.showToast("خطأ في الاتصال", "error"); }
-                finally { showLoader(false); }
-            } else if (role === 'handyman') {
-                window.showScreen('screen-otp-auth');
-                initRecaptcha();
+        // Start App
+        setTimeout(() => showScreen('screen-role'), 1500);
+
+        // State variables
+        let currentUserRole = null;
+        let selectedArtisanId = null;
+        let mockArtisans = [
+            { id: 'a1', name: 'كريم حكيمي', job: 'plumber', jobAr: 'ترصيص وسباكة', phone: '0670472249', lat: 50, lng: 50, isOnline: true, isVerified: true, balance: 1500, docId: 'doc_base64_img' },
+            { id: 'a2', name: 'أحمد سعيد', job: 'electrician', jobAr: 'كهرباء معمارية', phone: '0555123456', lat: 30, lng: 70, isOnline: true, isVerified: true, balance: 50, docId: 'doc_base64_img' },
+            { id: 'a3', name: 'طارق بناء', job: 'plumber', jobAr: 'ترصيص وسباكة', phone: '0770987654', lat: 80, lng: 20, isOnline: false, isVerified: false, balance: 0, docId: 'doc_base64_img' }
+        ];
+
+        window.selectRole = function(role) {
+            currentUserRole = role;
+            if(role === 'artisan') {
+                showScreen('screen-otp');
+            } else {
+                showScreen('screen-customer-home');
             }
-        }
+        };
 
-        function logout() {
-            auth.signOut().then(() => {
-                if(unsubUser) unsubUser();
-                if(unsubAdmin) unsubAdmin();
-                if(unsubRequests) unsubRequests();
-                currentUser = null; userRole = null;
-                window.showScreen('screen-role-select');
-            });
-        }
-
-        // --- OTP Logic for Handyman ---
-        function initRecaptcha() {
-            try {
-                if(!window.recaptchaVerifier) {
-                    window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
-                        'size': 'invisible',
-                        'callback': (response) => {
-                            // reCAPTCHA solved
-                        },
-                        'expired-callback': () => {
-                            window.showToast("انتهت صلاحية التحقق، يرجى إعادة المحاولة.", "error");
-                        }
-                    });
-                }
-            } catch (e) {
-                console.error("Recaptcha Init Error:", e);
+        // Mock Firebase Logic (using in-memory array for instant demo since real config requires network/keys)
+        window.sendOTP = function() {
+            const phone = document.getElementById('phone-input').value;
+            if(!phone || phone.length < 8) {
+                showToast('الرجاء إدخال رقم هاتف صحيح', 'error');
+                return;
             }
-        }
+            showToast('تم محاكاة إرسال الرمز بنجاح. أدخل 123456', 'success');
+            document.getElementById('otp-step-1').classList.add('hidden');
+            document.getElementById('otp-step-2').classList.remove('hidden');
+        };
 
-        async function sendOTP() {
-            let phone = document.getElementById('auth-phone').value.trim();
-            if(!phone || phone.length < 9) return window.showToast("رقم الهاتف غير صالح", "error");
-            if(phone.startsWith('0')) phone = phone.substring(1);
-            const fullPhone = '+213' + phone;
-
-            showLoader(true);
-            try {
-                if (!window.recaptchaVerifier) initRecaptcha();
-                
-                confirmationResult = await auth.signInWithPhoneNumber(fullPhone, window.recaptchaVerifier);
-                document.getElementById('step-phone').classList.add('hidden');
-                document.getElementById('step-verify').classList.remove('hidden');
-                document.getElementById('display-sent-phone').innerText = fullPhone;
-                window.showToast("تم إرسال الرمز بنجاح", "success");
-            } catch (error) {
-                console.error("Firebase OTP Error:", error);
-                let errorMsg = "فشل إرسال الرمز.";
-                
-                // تحديد نوع الخطأ بدقة
-                if (error.code === 'auth/invalid-phone-number') {
-                    errorMsg = "رقم الهاتف غير صالح أو غير مدعوم.";
-                } else if (error.code === 'auth/too-many-requests') {
-                    errorMsg = "طلبات كثيرة جداً. حاول بعد قليل.";
-                } else if (error.code === 'auth/unauthorized-domain') {
-                    errorMsg = "النطاق غير مصرح به في إعدادات Firebase.";
-                } else {
-                    errorMsg = "خطأ: " + error.code;
-                }
-                
-                window.showToast(errorMsg, "error");
-                
-                // إعادة تهيئة الكابتشا لتسمح بالمحاولة مرة أخرى
-                if(window.recaptchaVerifier) {
-                    window.recaptchaVerifier.render().then(function(widgetId) {
-                        grecaptcha.reset(widgetId);
-                    }).catch(e => console.log("Recaptcha reset error:", e));
-                }
-            } finally { 
-                showLoader(false); 
+        window.verifyOTP = function() {
+            const code = document.getElementById('code-input').value;
+            if(code === '123456') {
+                showToast('تم تسجيل الدخول بنجاح', 'success');
+                showScreen('screen-artisan-docs');
+            } else {
+                showToast('الرمز خاطئ، جرب 123456', 'error');
             }
-        }
+        };
 
-        async function verifyOTP() {
-            const code = document.getElementById('auth-otp').value.trim();
-            if(code.length !== 6) return window.showToast("أدخل 6 أرقام", "error");
-            
-            showLoader(true);
-            try {
-                const result = await confirmationResult.confirm(code);
-                currentUser = result.user;
-                
-                // Check if user exists in DB
-                const doc = await db.collection('users').doc(currentUser.uid).get();
-                if (doc.exists) {
-                    loadHandymanDashboard();
-                } else {
-                    window.showScreen('screen-handyman-register');
-                }
-            } catch (error) {
-                window.showToast("الرمز خاطئ", "error");
-            } finally { showLoader(false); }
-        }
+        window.resetOTP = function() {
+            document.getElementById('code-input').value = '';
+            document.getElementById('otp-step-2').classList.add('hidden');
+            document.getElementById('otp-step-1').classList.remove('hidden');
+        };
 
-        function resetOTP() {
-            document.getElementById('step-verify').classList.add('hidden');
-            document.getElementById('step-phone').classList.remove('hidden');
-            document.getElementById('auth-otp').value = '';
-        }
-
-        window.previewDocFile = function(inputEl, imgId, iconId) {
+        // Canvas Image Compression
+        window.previewDocFile = function(inputEl, previewImgId) {
             const file = inputEl.files[0];
             if (!file) return;
-            
-            showLoader(true);
+
             const reader = new FileReader();
             reader.onload = function(e) {
                 const img = new Image();
                 img.onload = function() {
                     const canvas = document.createElement('canvas');
-                    const MAX_DIM = 500;
-                    let w = img.width, h = img.height;
-                    if (w > h && w > MAX_DIM) { h *= MAX_DIM / w; w = MAX_DIM; } 
-                    else if (h > MAX_DIM) { w *= MAX_DIM / h; h = MAX_DIM; }
-                    
-                    canvas.width = w; canvas.height = h;
+                    const MAX_WIDTH = 500;
+                    const MAX_HEIGHT = 500;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height && width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                    else if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+
+                    canvas.width = width; canvas.height = height;
                     const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, w, h);
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // Compress to 60%
                     
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // 0.6 Quality
-                    const imgEl = document.getElementById(imgId);
-                    imgEl.src = dataUrl;
-                    imgEl.classList.remove('hidden');
-                    document.getElementById(iconId).classList.add('hidden');
-                    inputEl.dataset.base64 = dataUrl;
-                    showLoader(false);
-                };
+                    const preview = document.getElementById(previewImgId);
+                    if(preview) {
+                        preview.src = dataUrl;
+                        preview.classList.remove('hidden');
+                    }
+                    inputEl.dataset.base64 = dataUrl; // Store for upload
+                }
                 img.src = e.target.result;
-            };
+            }
             reader.readAsDataURL(file);
         };
 
-        async function submitRegistration() {
-            const name = document.getElementById('reg-name').value.trim();
-            const category = document.getElementById('reg-category').value;
-            const idDoc = document.querySelector('input[onchange*="preview-id"]').dataset.base64;
-            const artDoc = document.querySelector('input[onchange*="preview-artisan"]').dataset.base64;
-            const selfDoc = document.querySelector('input[onchange*="preview-selfie"]').dataset.base64;
+        window.submitDocs = function() {
+            const name = document.getElementById('artisan-name').value;
+            const job = document.getElementById('artisan-job').value;
+            if(!name || !job) {
+                showToast('يرجى تعبئة كافة البيانات', 'error');
+                return;
+            }
+            // In a real app, send base64 to server here.
+            showToast('تم حفظ الملف المهني بنجاح', 'success');
+            showScreen('screen-chargily-sim');
+        };
 
-            if(!name || !category) return window.showToast("أكمل البيانات", "error");
-            if(!idDoc || !artDoc || !selfDoc) return window.showToast("يرجى التقاط جميع الصور للتوثيق", "error");
+        window.simulatePayment = function() {
+            showToast('جاري تحويلك لبوابة الدفع...', 'info');
+            setTimeout(() => {
+                showToast('تم الدفع بنجاح! رصيدك الآن 500 دج', 'success');
+                showScreen('screen-artisan-dash');
+                document.getElementById('dash-wallet-balance').innerHTML = '500.00 <span class="text-lg font-normal">د.ج</span>';
+                document.getElementById('dash-status-badge').textContent = 'نشط ✅';
+                document.getElementById('dash-status-badge').classList.replace('bg-yellow-500', 'bg-green-500');
+            }, 2000);
+        };
 
-            showLoader(true);
-            try {
-                await db.collection('users').doc(currentUser.uid).set({
-                    uid: currentUser.uid,
-                    role: 'handyman',
-                    name, category, phone: currentUser.phoneNumber,
-                    status: 'active', // 'active', 'paused', 'frozen'
-                    isVerified: false,
-                    isBanned: false,
-                    walletBalance: 0,
-                    lat: BASE_LAT + (Math.random() - 0.5) * 0.05, // Random near base
-                    lng: BASE_LNG + (Math.random() - 0.5) * 0.05,
-                    docs: { id: idDoc, artisan: artDoc, selfie: selfDoc },
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                window.showToast("تم إرسال طلبك للإدارة", "success");
-                loadHandymanDashboard();
-            } catch(e) { window.showToast("خطأ في الحفظ", "error"); }
-            finally { showLoader(false); }
-        }
+        // Customer Map & Lead Logic
+        window.showMap = function(jobType) {
+            showScreen('screen-customer-map');
+            const mapArea = document.getElementById('customer-map-area');
+            mapArea.innerHTML = ''; // clear
 
-        function loadHandymanDashboard() {
-            window.showScreen('screen-handyman-dashboard');
-            if(unsubUser) unsubUser();
-            if(unsubRequests) unsubRequests();
-            
-            unsubUser = db.collection('users').doc(currentUser.uid).onSnapshot(doc => {
-                if(!doc.exists) return logout();
-                const data = doc.data();
-                
-                document.getElementById('dash-name').innerText = data.name;
-                document.getElementById('dash-wallet').innerText = (data.walletBalance || 0).toFixed(2);
-                if(data.docs?.selfie) document.getElementById('dash-avatar').src = data.docs.selfie;
-
-                const msgContainer = document.getElementById('sys-msg-container');
-                msgContainer.innerHTML = '';
-                
-                let badge = '';
-                if (data.isBanned) {
-                    badge = `<span class="bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">محظور نهائياً</span>`;
-                    msgContainer.innerHTML = `<div class="bg-red-100 text-red-800 p-4 rounded-xl font-bold border border-red-200 mb-4"><i class="fas fa-ban"></i> حسابك محظور. اتصل بالإدارة.</div>`;
-                } else if (!data.isVerified) {
-                    badge = `<span class="bg-yellow-500 text-white px-2 py-1 rounded text-xs font-bold">قيد المراجعة</span>`;
-                    msgContainer.innerHTML = `<div class="bg-yellow-100 text-yellow-800 p-4 rounded-xl font-bold border border-yellow-200 mb-4"><i class="fas fa-clock"></i> حسابك قيد المراجعة.</div>`;
-                } else {
-                    if(data.status === 'active') badge = `<span class="bg-success text-white px-2 py-1 rounded text-xs font-bold">نشط</span>`;
-                    if(data.status === 'paused') badge = `<span class="bg-paused text-white px-2 py-1 rounded text-xs font-bold">في استراحة</span>`;
-                    if(data.status === 'frozen') {
-                        badge = `<span class="bg-frozen text-white px-2 py-1 rounded text-xs font-bold">حساب مجمد</span>`;
-                        msgContainer.innerHTML = `<div class="bg-blue-100 text-blue-800 p-4 rounded-xl font-bold border border-blue-200 mb-4"><i class="fas fa-snowflake"></i> قامت الإدارة بتجميد حسابك مؤقتاً.</div>`;
-                    }
+            let found = 0;
+            mockArtisans.forEach(art => {
+                if(art.job === jobType && art.isOnline) {
+                    found++;
+                    const pin = document.createElement('div');
+                    pin.className = 'pin flex flex-col items-center';
+                    pin.style.left = art.lat + '%';
+                    pin.style.top = art.lng + '%';
+                    pin.innerHTML = `
+                        <div class="bg-slate-800 text-white text-xs font-bold px-2 py-1 rounded shadow-md whitespace-nowrap mb-1">${art.name}</div>
+                        <div class="w-10 h-10 bg-white rounded-full border-2 border-blue-500 flex items-center justify-center shadow-lg text-blue-500 text-xl">
+                            <i class="fas ${jobType==='plumber'?'fa-wrench':'fa-bolt'}"></i>
+                        </div>
+                    `;
+                    pin.onclick = () => openArtisanProfile(art);
+                    mapArea.appendChild(pin);
                 }
-                document.getElementById('dash-status-container').innerHTML = badge;
             });
 
-            // Listen for direct requests (images/videos sent by customers)
-            unsubRequests = db.collection('requests')
-                .where('artisanId', '==', currentUser.uid)
-                .orderBy('timestamp', 'desc')
-                .limit(10)
-                .onSnapshot(snap => {
-                    const list = document.getElementById('artisan-requests-list');
-                    if(snap.empty) { list.innerHTML = `<div class="text-center py-6 text-slate-400 font-bold text-sm">لا توجد طلبات بعد.</div>`; return; }
-                    
-                    list.innerHTML = '';
-                    snap.forEach(d => {
-                        const req = d.data();
-                        list.innerHTML += `
-                            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                <div class="flex justify-between items-start mb-2">
-                                    <span class="font-bold text-sm text-slate-500">طلب جديد</span>
-                                </div>
-                                <p class="font-bold text-dark text-sm mb-2">${req.desc || 'بدون وصف'}</p>
-                                ${req.media ? `<img src="${req.media}" class="w-full h-32 object-cover rounded-lg border cursor-pointer" onclick="window.open(this.src)">` : ''}
-                            </div>
-                        `;
-                    });
-                });
-        }
-
-        window.paySubscription = () => window.showScreen('screen-handyman-pay');
-        window.confirmSimulatedPayment = async function(isSuccess) {
-            if(!isSuccess) { window.showToast("فشل الدفع", "error"); return loadHandymanDashboard(); }
-            
-            showLoader(true);
-            try {
-                const ref = db.collection('users').doc(currentUser.uid);
-                await db.runTransaction(async t => {
-                    const doc = await t.get(ref);
-                    t.update(ref, { walletBalance: (doc.data().walletBalance || 0) + window.chargilyConfig.amount });
-                });
-                window.showToast("تم شحن الرصيد بنجاح عبر بوابة Chargily", "success");
-                loadHandymanDashboard();
-            } catch(e) { window.showToast("حدث خطأ", "error"); }
-            finally { showLoader(false); }
-        };
-
-        async function loadCustomerHome() {
-            window.showScreen('screen-customer-home');
-            showLoader(true);
-            try {
-                // Fetch active, verified, unbanned artisans with balance >= 100
-                const snap = await db.collection('users')
-                    .where('role', '==', 'handyman')
-                    .where('isVerified', '==', true)
-                    .where('isBanned', '==', false)
-                    .where('status', '==', 'active')
-                    .get();
-                
-                allArtisans = [];
-                snap.forEach(doc => {
-                    const data = doc.data();
-                    if(data.walletBalance >= 100) allArtisans.push({id: doc.id, ...data});
-                });
-                renderCustomerArtisans(allArtisans);
-                renderCustomerMap(allArtisans);
-            } catch(e) { console.error(e); } finally { showLoader(false); }
-        }
-
-        window.filterByCategory = (cat) => {
-            const filtered = cat === 'الكل' ? allArtisans : allArtisans.filter(a => a.category === cat);
-            renderCustomerArtisans(filtered);
-        };
-        window.filterArtisans = () => {
-            const q = document.getElementById('searchInput').value.toLowerCase();
-            const filtered = allArtisans.filter(a => a.name.toLowerCase().includes(q) || a.category.includes(q));
-            renderCustomerArtisans(filtered);
-        };
-
-        function renderCustomerArtisans(list) {
-            const container = document.getElementById('customer-artisans-list');
-            if (!list.length) return container.innerHTML = `<div class="text-center py-10 font-bold text-slate-400">لا يوجد حرفيين مطابقين حالياً</div>`;
-            container.innerHTML = list.map(a => `
-                <div onclick="openArtisanProfile('${a.id}')" class="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 cursor-pointer">
-                    <img src="${a.docs?.selfie}" class="w-16 h-16 rounded-full object-cover border">
-                    <div class="flex-1">
-                        <h4 class="font-black text-dark text-lg">${a.name} <i class="fas fa-check-circle text-primary text-sm"></i></h4>
-                        <p class="text-sm font-bold text-slate-500">${a.category}</p>
-                    </div>
-                    <i class="fas fa-chevron-left text-slate-300"></i>
-                </div>`).join('');
-        }
-
-        function renderCustomerMap(list) {
-            const container = document.getElementById('map-container-customer');
-            container.innerHTML = list.map((a, i) => `
-                <div onclick="openArtisanProfile('${a.id}')" class="absolute pin-bounce cursor-pointer flex flex-col items-center" style="top:${20 + (i*15)%60}%; left:${20 + (i*25)%60}%;">
-                    <div class="bg-dark text-white text-[10px] font-bold px-2 py-0.5 rounded mb-1">${a.category}</div>
-                    <img src="${a.docs?.selfie}" class="w-12 h-12 rounded-full border-2 border-primary object-cover">
-                </div>`).join('');
-        }
-
-        function openArtisanProfile(id) {
-            activeArtisanViewing = allArtisans.find(a => a.id === id);
-            if(!activeArtisanViewing) return;
-            
-            document.getElementById('profile-img').src = activeArtisanViewing.docs?.selfie;
-            document.getElementById('profile-name').innerHTML = `${activeArtisanViewing.name} <i class="fas fa-certificate text-primary"></i>`;
-            document.getElementById('profile-category').innerText = activeArtisanViewing.category;
-            
-            // Reset UI states
-            document.getElementById('profile-phone').innerText = "06** *** ***";
-            const btn = document.getElementById('reveal-phone-btn');
-            btn.classList.remove('hidden'); btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-unlock"></i> إظهار الرقم (اتصال آمن)';
-            btn.onclick = () => processPayPerLead(activeArtisanViewing.id, activeArtisanViewing.phone);
-            
-            // Hide media section until unlocked
-            document.getElementById('media-upload-section').classList.add('hidden');
-            
-            window.showScreen('screen-artisan-profile');
-        }
-
-        async function processPayPerLead(artisanId, fullPhone) {
-            const btn = document.getElementById('reveal-phone-btn');
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> جاري التحقق...'; btn.disabled = true;
-
-            try {
-                // Deduplication 24h Logic
-                const logQuery = await db.collection('lead_logs')
-                    .where('customerId', '==', currentUser.uid)
-                    .where('artisanId', '==', artisanId)
-                    .orderBy('timestamp', 'desc').limit(1).get();
-
-                let shouldCharge = true;
-                if (!logQuery.empty) {
-                    const hoursPassed = (Date.now() - logQuery.docs[0].data().clientTime) / 3600000;
-                    if (hoursPassed < 24) shouldCharge = false;
-                }
-
-                if (shouldCharge) {
-                    const aRef = db.collection('users').doc(artisanId);
-                    await db.runTransaction(async t => {
-                        const d = await t.get(aRef);
-                        const bal = d.data().walletBalance || 0;
-                        if(bal < 100) throw "NO_BAL";
-                        t.update(aRef, { walletBalance: bal - 100 });
-                        t.set(db.collection('lead_logs').doc(), {
-                            artisanId, customerId: currentUser.uid, amount: 100, 
-                            clientTime: Date.now(), timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                    });
-                }
-                
-                // Unlock UI
-                document.getElementById('profile-phone').innerText = fullPhone;
-                btn.classList.add('hidden');
-                document.getElementById('media-upload-section').classList.remove('hidden'); // Unlock Media Upload
-                window.showToast(shouldCharge ? "تم الخصم بنجاح" : "كشف مجاني (سبق الدفع)", "success");
-                
-            } catch(e) {
-                if(e === "NO_BAL") window.showToast("عذراً، رصيد الحرفي لا يسمح باستقبال الطلب.", "error");
-                else window.showToast("حدث خطأ", "error");
-                btn.innerHTML = '<i class="fas fa-unlock"></i> إظهار الرقم'; btn.disabled = false;
-            }
-        }
-
-        async function sendIssueToArtisan() {
-            const desc = document.getElementById('issue-desc').value.trim();
-            const inputEl = document.querySelector('input[onchange*="preview-issue"]');
-            const mediaB64 = inputEl.dataset.base64 || null;
-            
-            if(!desc && !mediaB64) return window.showToast("يرجى كتابة وصف أو إرفاق صورة", "warning");
-
-            showLoader(true);
-            try {
-                await db.collection('requests').add({
-                    artisanId: activeArtisanViewing.id,
-                    customerId: currentUser.uid,
-                    desc, media: mediaB64,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                window.showToast("تم إرسال الطلب للحرفي بنجاح", "success");
-                document.getElementById('issue-desc').value = '';
-                inputEl.dataset.base64 = '';
-                document.getElementById('preview-issue').classList.add('hidden');
-                document.getElementById('icon-issue').classList.remove('hidden');
-            } catch(e) { window.showToast("خطأ في الإرسال", "error"); }
-            finally { showLoader(false); }
-        }
-
-        function verifyAdmin() {
-            if(document.getElementById('admin-pwd').value === 'Ha15041978@') {
-                userRole = 'admin';
-                loadAdminDashboard();
+            if(found > 0) {
+                showToast(`تم العثور على ${found} حرفي قريب`, 'success');
             } else {
-                window.showToast("كلمة المرور خاطئة", "error");
+                showToast(`لا يوجد حرفيين متاحين حالياً في هذا التخصص`, 'error');
             }
-        }
-
-        function loadAdminDashboard() {
-            window.showScreen('screen-admin-dashboard');
-            switchAdminTab('map');
-            if(unsubAdmin) unsubAdmin();
-            
-            unsubAdmin = db.collection('users').where('role', '==', 'handyman').onSnapshot(snap => {
-                let users = [];
-                snap.forEach(d => users.push({id: d.id, ...d.data()}));
-                
-                renderAdminMap(users);
-                renderAdminUsersTable(users);
-                renderAdminVerification(users.filter(u => !u.isVerified));
-                
-                // Update Notification Targets
-                const sel = document.getElementById('notify-target');
-                sel.innerHTML = '<option value="ALL">إلى جميع الحرفيين</option>' + 
-                    users.map(u => `<option value="${u.id}">${u.name} (${u.phone})</option>`).join('');
-            });
-        }
-
-        window.switchAdminTab = (tabId) => {
-            document.querySelectorAll('.admin-content').forEach(e => e.classList.add('hidden'));
-            document.getElementById(`admin-tab-${tabId}`).classList.remove('hidden');
-            document.querySelectorAll('.admin-tab').forEach(e => { e.classList.remove('text-primary','border-primary'); e.classList.add('text-slate-500','border-transparent'); });
-            event.currentTarget.classList.add('text-primary','border-primary');
-            event.currentTarget.classList.remove('text-slate-500','border-transparent');
         };
 
-        function renderAdminMap(users) {
-            const container = document.getElementById('admin-live-map');
-            container.innerHTML = users.filter(u=>!u.isBanned && u.isVerified).map((u, i) => {
-                let colorClass = 'bg-success'; // active
-                if(u.status === 'paused') colorClass = 'bg-paused';
-                if(u.status === 'frozen') colorClass = 'bg-frozen';
-                
-                // Store json safely in data attribute to use in onclick
-                const encodedData = encodeURIComponent(JSON.stringify(u));
-                return `
-                <div onclick="openAdminArtisanModal('${encodedData}')" class="absolute flex flex-col items-center cursor-pointer transform hover:scale-110 transition z-10" style="top:${20 + (i*13)%60}%; left:${10 + (i*21)%80}%;">
-                    <div class="bg-white text-dark text-[9px] font-bold px-1 rounded shadow border mb-1 whitespace-nowrap">${u.name}</div>
-                    <div class="w-4 h-4 ${colorClass} border-2 border-white rounded-full shadow-lg"></div>
-                </div>`;
-            }).join('');
-        }
-
-        window.openAdminArtisanModal = function(encodedData) {
-            const u = JSON.parse(decodeURIComponent(encodedData));
-            const m = document.getElementById('admin-artisan-modal');
-            document.getElementById('modal-img').src = u.docs?.selfie || '';
-            document.getElementById('modal-name').innerText = u.name;
-            document.getElementById('modal-cat').innerText = u.category;
-            
-            let status = u.status === 'active' ? 'نشط' : u.status === 'paused' ? 'استراحة' : 'مجمد';
-            let color = u.status === 'active' ? 'bg-success' : u.status === 'paused' ? 'bg-paused' : 'bg-frozen';
-            document.getElementById('modal-status-badge').innerHTML = `<span class="${color} text-white px-2 py-1 rounded-full text-xs">${status}</span>`;
-            
-            document.getElementById('modal-phone-link').innerText = u.phone;
-            document.getElementById('modal-phone-link').href = `tel:${u.phone}`;
-            document.getElementById('modal-wallet').innerText = `${u.walletBalance.toFixed(2)} DZD`;
-            
-            document.getElementById('modal-btn-notify').onclick = () => { m.classList.replace('flex','hidden'); switchAdminTab('notify'); document.getElementById('notify-target').value = u.id; };
-            
-            m.classList.replace('hidden', 'flex');
+        window.openArtisanProfile = function(art) {
+            selectedArtisanId = art.id;
+            document.getElementById('profile-name').textContent = art.name;
+            document.getElementById('profile-job').textContent = art.jobAr;
+            document.getElementById('phone-display').textContent = '0' + art.phone.substring(1,4) + ' •• •• ••';
+            document.getElementById('btn-reveal-contact').classList.remove('hidden');
+            document.getElementById('issue-report-section').classList.add('hidden');
+            showScreen('screen-artisan-profile');
         };
 
-        function renderAdminUsersTable(users) {
-            const tbody = document.getElementById('admin-users-table');
-            tbody.innerHTML = users.map(u => `
-                <tr class="hover:bg-slate-50 border-b">
-                    <td class="p-3 flex items-center gap-2"><img src="${u.docs?.selfie}" class="w-8 h-8 rounded-full object-cover"> ${u.name}</td>
-                    <td class="p-3 text-xs text-slate-500">${u.category}</td>
-                    <td class="p-3 font-mono text-primary">${u.walletBalance.toFixed(0)}</td>
-                    <td class="p-3">
-                        <select onchange="adminChangeStatus('${u.id}', this.value)" class="bg-slate-100 border text-xs p-1 rounded font-bold outline-none">
-                            <option value="active" ${u.status==='active'?'selected':''}>نشط</option>
-                            <option value="paused" ${u.status==='paused'?'selected':''}>استراحة</option>
-                            <option value="frozen" ${u.status==='frozen'?'selected':''}>مُجمد</option>
-                        </select>
-                    </td>
-                    <td class="p-3 flex gap-1 justify-center">
-                        <button onclick="adminAction('${u.id}', 'topup')" class="bg-blue-100 text-primary px-2 py-1 rounded text-xs"><i class="fas fa-plus"></i></button>
-                        ${u.isBanned ? 
-                            `<button onclick="adminAction('${u.id}', 'unban')" class="bg-slate-200 text-slate-700 px-2 py-1 rounded text-xs">فك</button>`:
-                            `<button onclick="adminAction('${u.id}', 'ban')" class="bg-red-100 text-danger px-2 py-1 rounded text-xs"><i class="fas fa-ban"></i></button>`}
-                        <button onclick="adminAction('${u.id}', 'remove')" class="bg-slate-800 text-white px-2 py-1 rounded text-xs"><i class="fas fa-trash"></i></button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function renderAdminVerification(pending) {
-            const container = document.getElementById('admin-pending-list');
-            if(!pending.length) return container.innerHTML = `<div class="col-span-3 text-center py-10 font-bold text-slate-400">لا توجد طلبات معلقة</div>`;
-            container.innerHTML = pending.map(u => `
-                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <div class="font-black text-lg mb-1">${u.name}</div>
-                    <div class="text-xs text-slate-500 mb-3">${u.category} | ${u.phone}</div>
-                    <div class="grid grid-cols-3 gap-1 mb-3">
-                        <img src="${u.docs.id}" class="h-16 w-full object-cover rounded border cursor-pointer hover:scale-150 transition z-10" onclick="window.open(this.src)">
-                        <img src="${u.docs.artisan}" class="h-16 w-full object-cover rounded border cursor-pointer hover:scale-150 transition z-10" onclick="window.open(this.src)">
-                        <img src="${u.docs.selfie}" class="h-16 w-full object-cover rounded border cursor-pointer hover:scale-150 transition z-10" onclick="window.open(this.src)">
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="adminAction('${u.id}', 'verify')" class="flex-1 bg-success text-white py-1.5 rounded font-bold text-sm"><i class="fas fa-check"></i> قبول</button>
-                        <button onclick="adminAction('${u.id}', 'remove')" class="flex-1 bg-red-100 text-danger py-1.5 rounded font-bold text-sm"><i class="fas fa-times"></i> رفض</button>
-                    </div>
-                </div>
-            `).join('');
-        }
-
-        window.adminChangeStatus = async (uid, status) => {
-            try { await db.collection('users').doc(uid).update({ status }); window.showToast("تم تحديث الحالة","success");}
-            catch(e) { window.showToast("خطأ","error"); }
-        };
-
-        window.adminAction = async (uid, action) => {
-            const ref = db.collection('users').doc(uid);
-            try {
-                if(action === 'verify') await ref.update({isVerified: true, status: 'active'});
-                if(action === 'ban') await ref.update({isBanned: true});
-                if(action === 'unban') await ref.update({isBanned: false});
-                if(action === 'remove') { if(confirm("هل أنت متأكد من الحذف النهائي؟")) await ref.delete(); }
-                if(action === 'topup') {
-                    await db.runTransaction(async t => {
-                        const d = await t.get(ref);
-                        t.update(ref, {walletBalance: (d.data().walletBalance||0) + 500});
-                    });
+        window.revealContact = function() {
+            const art = mockArtisans.find(a => a.id === selectedArtisanId);
+            if(art) {
+                if(art.balance >= 100) {
+                    art.balance -= 100; // Deduct logic
+                    document.getElementById('phone-display').textContent = art.phone;
+                    document.getElementById('btn-reveal-contact').classList.add('hidden');
+                    document.getElementById('issue-report-section').classList.remove('hidden');
+                    showToast('تم خصم الرصيد من الحرفي. يمكنك التواصل الآن.', 'success');
+                } else {
+                    showToast('عذراً، هذا الحرفي غير متاح حالياً (رصيد غير كافٍ)', 'error');
                 }
-                window.showToast("العملية ناجحة", "success");
-            } catch(e) { window.showToast("خطأ في التنفيذ", "error"); }
+            }
         };
 
-        window.adminSendNotification = async () => {
-            const target = document.getElementById('notify-target').value;
-            const msg = document.getElementById('notify-msg').value.trim();
-            if(!msg) return;
-            showLoader(true);
-            try {
-                // In a real app this triggers FCM. Here we log it to DB for dashboard to read if we had a notifications system.
-                window.showToast(`تم إرسال الإشعار لـ ${target === 'ALL' ? 'الجميع' : 'الحرفي المحدد'}`, "success");
-                document.getElementById('notify-msg').value = '';
-            } catch(e){} finally {showLoader(false);}
+        window.sendIssueToArtisan = function() {
+            const input = document.getElementById('issue-image-input');
+            if(!input.dataset.base64) {
+                showToast('يرجى التقاط صورة للمشكل أولاً', 'error');
+                return;
+            }
+            showToast('تم إرسال المشكل للحرفي بنجاح!', 'success');
+            // In a real app, this sends to Firestore and notifies the Artisan dashboard.
         };
+
+        window.promptAdmin = function() {
+            const pwd = prompt("أدخل كلمة مرور المسؤول:");
+            if(pwd === "Ha15041978@") {
+                document.getElementById('main-wrapper').style.display = 'none';
+                document.getElementById('admin-wrapper').style.display = 'block';
+                showAdminTab('map');
+                renderAdminMap();
+            } else if(pwd !== null) {
+                showToast('كلمة المرور خاطئة', 'error');
+            }
+        };
+
+        window.closeAdmin = function() {
+            document.getElementById('admin-wrapper').style.display = 'none';
+            document.getElementById('main-wrapper').style.display = 'block';
+        };
+
+        window.showAdminTab = function(tab) {
+            document.getElementById('admin-tab-map').classList.add('hidden');
+            document.getElementById('admin-tab-verification').classList.add('hidden');
+            document.getElementById('admin-tab-finance').classList.add('hidden');
+            document.getElementById(`admin-tab-${tab}`).classList.remove('hidden');
+            
+            const titles = { map: 'الخريطة الحية', verification: 'مركز التوثيق', finance: 'الإدارة المالية' };
+            document.getElementById('admin-title').textContent = titles[tab];
+        };
+
+        window.renderAdminMap = function() {
+            const mapArea = document.getElementById('admin-map-area');
+            mapArea.innerHTML = '';
+            let online = 0;
+            mockArtisans.forEach(art => {
+                if(art.isOnline) online++;
+                const pin = document.createElement('div');
+                pin.className = 'pin flex flex-col items-center';
+                pin.style.left = art.lat + '%';
+                pin.style.top = art.lng + '%';
+                pin.innerHTML = `
+                    <div class="w-8 h-8 rounded-full border-2 ${art.isOnline ? 'border-green-500 bg-green-100 text-green-600' : 'border-slate-400 bg-slate-100 text-slate-400'} flex items-center justify-center shadow-lg">
+                        <i class="fas fa-user-tie"></i>
+                    </div>
+                `;
+                pin.onclick = () => openAdminSidePanel(art);
+                mapArea.appendChild(pin);
+            });
+            document.getElementById('online-count').textContent = online;
+        };
+
+        window.openAdminSidePanel = function(art) {
+            const panel = document.getElementById('admin-side-panel');
+            panel.classList.remove('translate-x-full');
+            panel.innerHTML = `
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="font-bold text-lg">تفاصيل الحرفي</h3>
+                    <button onclick="document.getElementById('admin-side-panel').classList.add('translate-x-full')" class="text-slate-400"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="text-center mb-6">
+                    <div class="w-20 h-20 bg-slate-200 rounded-full mx-auto mb-2 flex items-center justify-center text-slate-500 text-2xl"><i class="fas fa-user"></i></div>
+                    <h4 class="font-bold text-xl">${art.name}</h4>
+                    <p class="text-slate-500">${art.jobAr}</p>
+                </div>
+                <div class="space-y-4 mb-6">
+                    <div class="bg-slate-50 p-3 rounded-lg flex justify-between"><span>الهاتف:</span> <span class="font-bold" dir="ltr">${art.phone}</span></div>
+                    <div class="bg-slate-50 p-3 rounded-lg flex justify-between"><span>الرصيد:</span> <span class="font-bold text-green-600">${art.balance} د.ج</span></div>
+                    <div class="bg-slate-50 p-3 rounded-lg flex justify-between"><span>الحالة:</span> <span class="font-bold ${art.isOnline?'text-green-600':'text-red-500'}">${art.isOnline?'متصل':'غير متصل'}</span></div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 mb-4">
+                    <button class="bg-blue-100 text-blue-700 py-2 rounded font-bold" onclick="showToast('جاري الاتصال...','info')"><i class="fas fa-phone mr-1"></i> اتصال مباشر</button>
+                    <button class="bg-yellow-100 text-yellow-700 py-2 rounded font-bold" onclick="prompt('أدخل الإشعار:')"><i class="fas fa-bell mr-1"></i> إشعار</button>
+                </div>
+                <div class="space-y-2 border-t pt-4">
+                    <button class="w-full bg-slate-200 text-slate-700 py-2 rounded font-bold hover:bg-slate-300">تجميد الحساب (Gelée)</button>
+                    <button class="w-full bg-red-100 text-red-700 py-2 rounded font-bold hover:bg-red-200">حذف نهائي (Remove)</button>
+                </div>
+            `;
+        };
+
+        window.adminAddFunds = function() {
+            const phone = document.getElementById('admin-fund-phone').value;
+            const amount = document.getElementById('admin-fund-amount').value;
+            if(phone && amount) {
+                showToast(`تم إضافة ${amount} دج للرقم ${phone} بنجاح`, 'success');
+                document.getElementById('admin-fund-phone').value = '';
+                document.getElementById('admin-fund-amount').value = '';
+            } else {
+                showToast('يرجى تعبئة كافة الحقول', 'error');
+            }
+        };
+
     </script>
 </body>
 </html>
